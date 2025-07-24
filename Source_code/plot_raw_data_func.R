@@ -1,4 +1,4 @@
-plot_raw_data.peas <- function(traits){
+plot_raw_data_func <- function(traits, df){
   
   ### print traits
   print(traits)
@@ -24,7 +24,7 @@ plot_raw_data.peas <- function(traits){
     geom_hline(data = controls,
                aes(yintercept = mean),
                linetype = 2) +
-    # facet_wrap(~species, scales = "free_y") +
+    facet_wrap(~species, scales = "free_y") +
     scale_fill_manual(values = c("gray",
                                  "#EABD8C",
                                  "#FFAD00",
@@ -33,13 +33,14 @@ plot_raw_data.peas <- function(traits){
                                  "cornflowerblue",
                                  "blue")) +
     labs(y = paste0(traits), 
-         x = "Treatment") +
+         x = "Contaminant source") +
     guides(fill = "none") +
     theme_bw() +
     theme(
-      axis.text.x = element_text(size = 12),
-      axis.title.x = element_text(size = 16),
+      axis.text.x = element_blank(),
+      axis.title.x = element_blank(),
       axis.title.y = element_text(size = 16),
+      strip.text = element_text(size = 14, face = "bold"),
       panel.grid.major = element_blank(),
       panel.grid.minor = element_blank(),
     )

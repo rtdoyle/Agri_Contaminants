@@ -49,12 +49,17 @@ Traits measured:
 * Post-planting: 
   + Germination rates (proportion of germinated seeds out of total number of 
       seeds planted)
+  + Survival rates (proportion of plants that survived out of total number of 
+      seeds planted)    
 * At harvest: 
   + Normalized Difference Vegetation Index (NDVI) value, which reflects leaf 
       chlorophyll A content and is a close correlate of nitrogen content, 
   + Above- and below-ground wet and dry biomass 
-  + Wet and dry pod weights for peas only (the portion of the plant most 
+* For peas only: 
+  + Wet and dry pod weights (the portion of the plant most 
       relevant to agricultural yield). 
+  + Number of flowers and pods 
+  + Infection rate (proportion of plants infected by fungus out of total)
       
 ### Load data
 
@@ -146,11 +151,12 @@ trait.list1 <- c(
                 )
 
 ## source function
-source("./Source_code/plot_raw_data.R")
+source("./Source_code/plot_raw_data_func.R")
 
 ## plotting function
-plots.out1 <- sapply(trait.list1, df = direct,
-                     FUN = plot_raw_data,
+plots.out1 <- sapply(trait.list1, 
+                     plot_raw_data_func,
+                     df = direct,
                    simplify = FALSE, 
                    USE.NAMES = TRUE)
 
@@ -166,13 +172,12 @@ trait.list2 <- c(
                 )
 
 ## source function
-source("./Source_code/plot_raw_data.peas.R")
+source("./Source_code/plot_raw_data.peas_func.R")
 
 ## plotting function
-plots.out2 <- sapply(trait.list2, df = direct %>%
-                       filter(species == "pea") %>%
-                       droplevels(.),
-                    FUN = plot_raw_data.peas,
+plots.out2 <- sapply(trait.list2,
+                    plot_raw_data.peas_func,
+                    df = direct,
                    simplify = FALSE, 
                    USE.NAMES = TRUE)
 
