@@ -2,29 +2,629 @@
 title: "stat_analyses"
 author: "RTD, II"
 date: "`r Sys.Date()`"
-output: html_document
+output: github_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+## set working directory
+setwd("../Agri_Contaminants")
+
+## packages
+library(tidyverse) ## ggplot, stringr, and more
+library(lme4) ## lmer function
+library(car) ## Anova for type 3 (interactions)
+library(emmeans) ## post-hoc analyses
+library(RColorBrewer) ## colour pallets
+library(cowplot) ## plotgrid function
+library(ggbeeswarm) ## geom_beeswarm package
 ```
 
-## R Markdown
+## Direct impacts of contaminants on crop growth
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+What impacts do amendments spiked with different levels of
+contaminants have on plant traits, and are these impacts crop-species dependent?
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+Experimental design:
 
-```{r cars}
-summary(cars)
+* Crossed two amendment types (biosolids [BS] and reclaimed water [RW]) with 
+three contaminant spiking levels (0 [no spiking], 1 [ecologically relevant
+concentrations], and 2 [higher than ecological concentrations, to detect in 
+plant tissues downstream]).
+* Exposed the resulting six treatments to each of three crop species 
+commonly used in agriculture (lettuce, radish, and green peas), each growing 
+separately in pots, resulting in a total of 18 treatment combinations 
+(2 amendments x 3 spiking levels x 3 crop species). 
+* To account for environmental heterogeneity in growth conditions across the 
+greenhouse, each treatment combination was spatially replicated three times, 
+for a total of 54 experimental units (i.e., pots). 
+* Finally, we included nine controls in which no amendments were added, for a 
+total of 63 pots (n = 3 controls per crop species x 3 crops = 9 pots). 
+    
+Traits measured:
+
+* Post-planting: 
+  + Germination rates (proportion of germinated seeds out of total number of 
+      seeds planted)
+* At harvest: 
+  + Normalized Difference Vegetation Index (NDVI) value, which reflects leaf 
+      chlorophyll A content and is a close correlate of nitrogen content, 
+  + Above- and below-ground wet and dry biomass 
+  + Wet and dry pod weights for peas only (the portion of the plant most 
+      relevant to agricultural yield). 
+      
+### Load data
+
+```{r load_data}
+direct <- read_csv("./direct-updated.csv")
+
+## calculate other traits
+direct <- direct %>%
+  mutate(seeds_planted_total = 
+           rowSums(across(c(seeds_planted1, seeds_planted2)),
+                                       na.rm=TRUE),
+         seeds_germinated_total = 
+           rowSums(across(c(seeds_germinated, seeds_germinated2)),
+                                       na.rm=TRUE),
+         germination_perc = (seeds_germinated_total / 
+                               seeds_planted_total)*100,
+         dry_total_weight = rowSums(across(c(dry_shoot_weight, 
+                                             dry_root_weight))),
+         shoot_root_ratio = dry_shoot_weight / dry_root_weight,
+         shoot_moisture = (wet_shoot_weight - dry_shoot_weight) / 
+           dry_shoot_weight,
+         per_plant_weight = dry_total_weight / plants,
+         survival_perc = (plants / seeds_planted_total) * 100,
+         infected_peas_perc = (infected_peas/seeds_planted_total)*100
+         )
+
+## Code factors
+
+### specify spiking level as an ordered factor
+direct$spikeFac <- factor(direct$spiking_level,
+                          levels = c("0","1","2"),
+                          ordered = TRUE)
+
+### rename source to be consistent with indirect
+direct$contam <- ifelse(
+  is.na(direct$source) == TRUE, "control",
+                        ifelse(
+                          direct$source ==
+                            "effluents","RW",
+                               "BS"))
+
+### spiking level plus contam
+direct$contam_spike <- paste0(direct$contam, 
+                                "-", 
+                                direct$spiking_level)
+
+### treatment
+direct$contam_spike <- factor(direct$contam_spike, 
+                                levels = c("control-0",
+                                           "BS-0",
+                                           "BS-1",
+                                           "BS-2",
+                                           "RW-0",
+                                           "RW-1",
+                                           "RW-2"))
+
+## save formatted data file
+save(direct, file = "./direct-formatted.Rda")
 ```
 
-## Including Plots
+### Figures (raw data)
 
-You can also embed plots, for example:
+```{r figs_raw}
+load(file = "./direct-formatted.Rda") ## loads direct
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+## plots (traits at harvest)
+
+### traits to run through (all crops)
+trait.list1 <- c(
+                "wet_shoot_weight", 
+                "dry_shoot_weight",
+                "wet_root_weight", 
+                "dry_root_weight",
+                "shoot_root_ratio",
+                "dry_total_weight",
+                "per_plant_weight",
+                "shoot_moisture",
+                "germination_perc",
+                "survival_perc"
+                )
+
+## plotting function
+plots.out1 <- sapply(trait.list1, df = direct,
+                   simplify = FALSE, 
+                   USE.NAMES = TRUE,
+                  function(traits, df){
+                    
+### print traits
+  print(traits)
+
+### means
+  df.means <- df %>% 
+    group_by(species, contam_spike, contam, spikeFac) %>%
+    summarize(mean = mean(get(traits), na.rm = TRUE))
+  controls <- df %>% 
+    filter(contam == "control") %>%
+    group_by(species, contam_spike, contam, spikeFac) %>%
+    summarize(mean = mean(get(traits), na.rm = TRUE))
+
+### plots
+  p <- ggplot(df.means,
+       aes(x = contam_spike, 
+           y = mean)) +
+  geom_bar(aes(fill = contam_spike),
+           stat = "identity") +
+  geom_beeswarm(data = df,
+             aes(y = get(traits))
+             ) +
+   geom_hline(data = controls,
+              aes(yintercept = mean),
+              linetype = 2) +
+  facet_wrap(~species, scales = "free_y") +
+  scale_fill_manual(values = c("gray",
+                                "#EABD8C",
+                                  "#FFAD00",
+                                  "#B06500",
+                                 "lightblue",
+                                 "cornflowerblue",
+                                 "blue")) +
+  labs(y = paste0(traits), 
+       x = "Contaminant source") +
+  guides(fill = "none") +
+  theme_bw() +
+  theme(
+    axis.text.x = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 16),
+    strip.text = element_text(size = 14, face = "bold"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+  )
+  
+### return
+  return(p)
+})
+
+## peas only
+
+### traits to run through (peas only)
+trait.list2 <- c(
+                "wet_pod_weight",
+                "dry_pod_weight",
+                "pods",
+                "flowers",
+                "infected_peas_perc"
+                )
+
+## plotting function
+plots.out2 <- sapply(trait.list2, df = direct %>%
+                       filter(species == "pea") %>%
+                       droplevels(.),
+                   simplify = FALSE, 
+                   USE.NAMES = TRUE,
+                  function(traits, df){
+                    
+### print traits
+  print(traits)
+
+### means
+  df.means <- df %>% 
+    group_by(species, contam_spike, contam, spikeFac) %>%
+    summarize(mean = mean(get(traits), na.rm = TRUE))
+  controls <- df %>% 
+    filter(contam == "control") %>%
+    group_by(species, contam_spike, contam, spikeFac) %>%
+    summarize(mean = mean(get(traits), na.rm = TRUE))
+
+### plots
+  p <- ggplot(df.means,
+       aes(x = contam_spike, 
+           y = mean)) +
+  geom_bar(aes(fill = contam_spike),
+           stat = "identity") +
+  geom_beeswarm(data = df,
+             aes(y = get(traits))
+             ) +
+   geom_hline(data = controls,
+              aes(yintercept = mean),
+              linetype = 2) +
+  # facet_wrap(~species, scales = "free_y") +
+   scale_fill_manual(values = c("gray",
+                                "#EABD8C",
+                                  "#FFAD00",
+                                  "#B06500",
+                                 "lightblue",
+                                 "cornflowerblue",
+                                 "blue")) +
+  labs(y = paste0(traits), 
+       x = "Treatment") +
+  guides(fill = "none") +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(size = 12),
+    axis.title.x = element_text(size = 16),
+    axis.title.y = element_text(size = 16),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+  )
+  
+### return
+  return(p)
+})
+
+## combine plots (all crops)
+fig1 <- plot_grid(plots.out1[["dry_shoot_weight"]] +
+                    labs(y = "Dry shoot \n weight (g)"),
+                  plots.out1[["dry_root_weight"]] +
+                    labs(y = "Dry root \n weight (g)"),
+                  plots.out1[["shoot_root_ratio"]] +
+                    labs(y = "Shoot:root \n ratio"),
+                  plots.out1[["shoot_moisture"]] +
+                    labs(y = "Shoot moisture"),
+                  plots.out1[["survival_perc"]] +
+                    labs(y = "Survival (%)"),
+          ncol = 1,
+          nrow = 5,
+          align = "hv",
+          labels = NULL)
+
+## combine plots (peas only)
+fig2 <- plot_grid(plots.out2[["dry_pod_weight"]] +
+                    labs(y = "Dry pod \n weight (g)"),
+                  plots.out2[["infected_peas_perc"]] +
+                    labs(y = "Peas Infected (%)"),
+          ncol = 2,
+          nrow = 1,
+          align = "hv",
+          labels = NULL)
+
+## combine plots
+fig <- plot_grid(fig1, fig2,
+          ncol = 1,
+          nrow = 2,
+          rel_heights = c(0.8,0.2),
+          align = "hv",
+          labels = NULL)
+
+save_plot("./raw_data-direct.png", fig,
+          ncol = 2, 
+          nrow = 5,
+          base_aspect_ratio = 1.3)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## Models
+
+### Model 1
+
+Impact of amendment and contaminant exposure on plant traits, compared across 
+different crop species
+
+Include controls. Interaction with species only
+
+NOTE: consensus from data lunch (04April2025)
+
+Because spiking levels are very different between the amendments, we cannot 
+include the interaction terms.
+
+```{r model1}
+## load data
+load(file = "./direct-formatted.Rda") ## loads direct
+
+## set contrasts for ANOVA
+options(contrasts=c("contr.sum","contr.poly")) 
+
+### models (test)
+lmm <- lm(log(dry_shoot_weight) ~ species*contam_spike, 
+            data = direct)
+
+### traits to run through (non-peas)
+trait.list1 <- c(
+                "wet_shoot_weight", 
+                "dry_shoot_weight",
+                "wet_root_weight", 
+                "dry_root_weight",
+                "shoot_root_ratio",
+                "dry_total_weight",
+                "per_plant_weight",
+                "shoot_moisture",
+                "germination_perc",
+                "survival_perc"
+                )
+
+
+## model
+mod1.out <- sapply(trait.list1, 
+                   df = direct %>%
+                     filter(survival_perc > 0), ## cannot take a log of 0
+                   simplify = FALSE, 
+                   USE.NAMES = TRUE,
+                  function(traits, df){
+                    
+### print traits
+  print(traits)
+### model
+  lmm <- lm(log(get(traits)) ~ contam_spike*species,
+              data = df)
+### res vs fit plot
+  png(paste0("./model_outputs/direct/resfits1_", 
+             traits, ".png"), 
+      width=6, height=6, units='in', res=300)
+  layout(matrix(1:4, ncol = 2))
+  plot(lmm)
+  layout(1)
+  dev.off()
+### model output
+  print(summary(lmm))
+  aov <- Anova(lmm, type = 3)
+### processing
+  aov$trait <- paste0(traits)
+  aov$term <- rownames(aov)
+
+### compare treatments within species
+  lmm.bt <- update(ref_grid(lmm), tran = "log")
+  lmm.emm <- emmeans(lmm.bt, trt.vs.ctrl ~ 
+                       contam_spike | species,
+                     infer = TRUE,
+                     type = "response")
+
+### processing
+  emm <- as.data.frame(lmm.emm$emmeans)
+  emm$trait <- paste0(traits)
+  cont <- as.data.frame(lmm.emm$contrasts)
+  cont$trait <- paste0(traits)
+  
+### return dfs
+  return(list(aov, ## [[1]]
+              emm, ## [[2]]
+              cont ## [[3]]
+              )) 
+                    
+})
+
+## combine dfs
+### ANOVAs
+aov <- lapply(mod1.out, `[[`, 1) %>%
+  bind_rows(.)
+write.csv(aov, "./model_outputs/direct/aov1.csv", 
+          row.names = FALSE)
+### emmeans
+emm <- lapply(mod1.out, `[[`, 2) %>%
+  bind_rows(.)
+write.csv(emm, "./model_outputs/direct/emm1.csv", 
+          row.names = FALSE)
+### CONTRASTS
+cont <- lapply(mod1.out, `[[`, 3) %>%
+  bind_rows(.)
+write.csv(cont, "./model_outputs/direct/cont1.csv", 
+          row.names = FALSE)
+
+## figures
+cont <- read_csv("model_outputs/direct/cont1.csv")
+
+## rename treatment
+cont$treat <- ifelse(grepl("BS-0", 
+                           cont$contrast, 
+                           fixed = FALSE), "BS-0", 
+                    ifelse(grepl("BS-1", 
+                                 cont$contrast, 
+                                 fixed = FALSE), "BS-1",
+                    ifelse(grepl("BS-2", 
+                                 cont$contrast, 
+                                 fixed = FALSE), "BS-2",
+                    ifelse(grepl("RW-0", 
+                                 cont$contrast, 
+                                 fixed = FALSE), "RW-0",
+                    ifelse(grepl("RW-1", 
+                                 cont$contrast, 
+                                 fixed = FALSE), "RW-1",
+                           "RW-2")))))
+
+### all traits
+
+## EMmeans
+
+## figures
+emms <- read_csv("model_outputs/direct/emm1.csv")
+
+### extract spiking level
+emms$spike <- sub(".*-", "", emms$contam_spike)
+emms$amend <- sub("-.*", "", emms$contam_spike)
+
+### plot
+ggplot(emms %>% filter(trait %in% c(
+  "dry_shoot_weight","dry_root_weight",
+  "shoot_root_ratio","shoot_moisture",
+  "survival_perc") &
+    amend != "control"),
+   aes(x = spike, 
+       y = response, 
+       colour = amend)) +
+  geom_pointrange(aes(ymin = lower.CL,
+                      ymax = upper.CL),
+                  position = position_dodge(0.5)) +
+   geom_hline(data = emms %>%
+                filter(contam_spike == "control-0"),
+                       aes(yintercept = response),
+              linetype = 2) +
+   scale_colour_manual(values = c(
+                                  "#B06500",
+                                 "blue")) +
+  facet_wrap(~trait, scales = "free_y", ncol = 1) +
+  labs(y = "Ratio", x = "Species") +
+  guides(colour = "none") +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+  )
+
+
+### plot
+ggplot(cont %>% filter(trait %in% c(
+  "dry_shoot_weight","dry_root_weight",
+  "shoot_root_ratio","shoot_moisture",
+  "survival_perc"
+    )),
+   aes(x = species, 
+       y = ratio, 
+       colour = contrast)) +
+  geom_pointrange(aes(ymin = lower.CL,
+                      ymax = upper.CL),
+                  position = position_dodge(0.5)) +
+   geom_hline(aes(yintercept = 1),
+              linetype = 2) +
+   scale_colour_manual(values = c(
+                                "#EABD8C",
+                                  "#FFAD00",
+                                  "#B06500",
+                                 "lightblue",
+                                 "cornflowerblue",
+                                 "blue")) +
+  facet_wrap(~trait, scales = "free_y", ncol = 1) +
+  labs(y = "Ratio", x = "Species") +
+  guides(colour = "none") +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+  )
+
+ggsave("./model_outputs/direct/cont1.png", width = 12, height = 8, units = "in")
+
+## peas only
+
+### traits to run through (peas only)
+trait.list2 <- c("wet_pod_weight",
+                "dry_pod_weight",
+                "pods",
+                "flowers",
+                "infected_peas_perc"
+                )
+
+## model
+mod2.out <- sapply(trait.list2, df = direct %>%
+                     filter(species == "pea"),
+                   simplify = FALSE, 
+                   USE.NAMES = TRUE,
+                  function(traits, df){
+                    
+### print traits
+  print(traits)
+### model
+  lmm <- lm(get(traits) ~ contam_spike,
+              data = df)
+### res vs fit plot
+  png(paste0("./model_outputs/direct/resfits2_", 
+             traits, ".png"), 
+      width=6, height=6, units='in', res=300)
+  layout(matrix(1:4, ncol = 2))
+  plot(lmm)
+  layout(1)
+  dev.off()
+### model output
+  print(summary(lmm))
+  aov <- Anova(lmm, type = 2)
+### processing
+  aov$trait <- paste0(traits)
+  aov$term <- rownames(aov)
+
+### compare treatments within species
+  #lmm.bt <- update(ref_grid(lmm), tran = "log")
+  lmm.emm <- emmeans(lmm, trt.vs.ctrl ~ 
+                       contam_spike,
+                     infer = TRUE)
+
+### processing
+  emm <- as.data.frame(lmm.emm$emmeans)
+  emm$trait <- paste0(traits)
+  cont <- as.data.frame(lmm.emm$contrasts)
+  cont$trait <- paste0(traits)
+  
+### return dfs
+  return(list(aov, ## [[1]]
+              emm, ## [[2]]
+              cont ## [[3]]
+              )) 
+                    
+})
+
+## combine dfs
+### ANOVAs
+aov <- lapply(mod2.out, `[[`, 1) %>%
+  bind_rows(.)
+write.csv(aov, "./model_outputs/direct/aov2.csv", 
+          row.names = FALSE)
+### emmeans
+emm <- lapply(mod2.out, `[[`, 2) %>%
+  bind_rows(.)
+write.csv(emm, "./model_outputs/direct/emm2.csv", 
+          row.names = FALSE)
+### CONTRASTS
+cont <- lapply(mod2.out, `[[`, 3) %>%
+  bind_rows(.)
+write.csv(cont, "./model_outputs/direct/cont2.csv", 
+          row.names = FALSE)
+
+## figures
+cont <- read_csv("model_outputs/direct/cont2.csv")
+
+## rename treatment
+cont$treat <- ifelse(grepl("BS-0", 
+                           cont$contrast, 
+                           fixed = FALSE), "BS-0", 
+                    ifelse(grepl("BS-1", 
+                                 cont$contrast, 
+                                 fixed = FALSE), "BS-1",
+                    ifelse(grepl("BS-2", 
+                                 cont$contrast, 
+                                 fixed = FALSE), "BS-2",
+                    ifelse(grepl("RW-0", 
+                                 cont$contrast, 
+                                 fixed = FALSE), "RW-0",
+                    ifelse(grepl("RW-1", 
+                                 cont$contrast, 
+                                 fixed = FALSE), "RW-1",
+                           "RW-2")))))
+
+### pea traits
+
+### plot
+ggplot(cont,
+       aes(x = treat, 
+           y = estimate, 
+           colour = contrast)) +
+  geom_pointrange(aes(ymin = lower.CL,
+                      ymax = upper.CL),
+                  position = position_dodge(0.5)) +
+   geom_hline(aes(yintercept = 0),
+              linetype = 2) +
+   scale_colour_manual(values = c(
+                                "#EABD8C",
+                                  "#FFAD00",
+                                  "#B06500",
+                                 "lightblue",
+                                 "cornflowerblue",
+                                 "blue")) +
+  facet_wrap(~trait, scales = "free_y", ncol = 2) +
+  labs(y = "Estimate", x = "Treatment") +
+  guides(colour = "none") +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+  )
+
+ggsave("./model_outputs/direct/cont1.png", width = 12, height = 8, units = "in")
+
+
+
+```
