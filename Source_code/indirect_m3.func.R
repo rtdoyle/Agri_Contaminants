@@ -1,35 +1,22 @@
-lmm1.peas_func <- function(traits, df){
+indirect_m3.func <- function(combs, traits, amends, df){
   
   ### print traits
-  print(traits)
+  print(combs)
   
-  ### subset data to non-spiked samples
+  ### subset data to amendment types
   df.f <- df %>%
-    filter(species == "pea" &
-             spiking_level == 0) %>%
+    filter(trait == traits &
+      contam == amends) %>%
     droplevels(.)
   
-  if (!traits %in% c("pods","flowers")){
-  
   ### model
-  lmm <- lm(log(get(traits)) ~ contam,
+  lmm <- lm(log(response) ~ spikeFac,
             data = df.f)
-  
-  }
-  
-  else if (traits %in% c("pods","flowers")){
     
-    ### model
-    form <- as.formula(paste(traits, "~ contam"))
-    lmm <- glm(form,
-               family = poisson(link = "log"),
-               data = df.f)
-    
-  }
-  
+
   ### res vs fit plot
-  png(paste0("./model_outputs/direct/resfits1_", 
-             traits, ".png"), 
+  png(paste0("./model_outputs/direct/resfits3_", 
+             combs, ".png"), 
       width=6, height=6, units='in', res=300)
   layout(matrix(1:4, ncol = 2))
   plot(lmm)
@@ -41,19 +28,22 @@ lmm1.peas_func <- function(traits, df){
   ### processing
   aov$trait <- paste0(traits)
   aov$term <- rownames(aov)
+  aov$amend <- paste0(amends)
   
   ### compare treatments within species
   lmm.bt <- update(ref_grid(lmm), tran = "log")
-  lmm.emm <- emmeans(lmm.bt, trt.vs.ctrl ~ 
-                       contam,
-                     infer = TRUE,
-                     type = "response")
+    
+  lmm.emm <- emmeans(lmm.bt, poly ~ 
+                         spikeFac,
+                       infer = TRUE)
   
   ### processing
   emm <- as.data.frame(lmm.emm$emmeans)
   emm$trait <- paste0(traits)
+  emm$amend <- paste0(amends)
   cont <- as.data.frame(lmm.emm$contrasts)
   cont$trait <- paste0(traits)
+  cont$amend <- paste0(amends)
   
   ### return dfs
   return(list(aov, ## [[1]]
