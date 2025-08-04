@@ -15,6 +15,7 @@ setwd("../Agri_Contaminants")
 
 ## packages
 library(tidyverse) ## ggplot, stringr, and more
+library(knitr) ## kabel function
 library(lme4) ## lmer function
 library(car) ## Anova for type 3 (interactions)
 library(emmeans) ## post-hoc analyses
@@ -240,7 +241,7 @@ cont$LCL <- ifelse(is.na(cont$lower.CL) == TRUE,
 cont$UCL <- ifelse(is.na(cont$upper.CL) == TRUE,
                    signif(cont$asymp.UCL, 3),
                    signif(cont$upper.CL, 3))
-cont$ratio_CL <- paste0(signif(cont$ratio, 3)," (",
+cont$ratio_CL <- paste0(signif(cont$ratio, 3), " (",
                         cont$LCL," - ",
                         cont$UCL,")")
 write.csv(cont, "./model_outputs/direct/cont1.csv", 
@@ -370,7 +371,6 @@ png(paste0("./model_outputs/direct/resfits_m3.png"),
   plot(m3)
   layout(1)
 dev.off()
-plot(m3)
 m3_coeff <- as.data.frame(m3_sum[["coefficients"]])
 write.csv(m3_coeff, "./model_outputs/direct/m3_coeff.csv", 
           row.names = TRUE)
@@ -692,7 +692,7 @@ ggsave("./model_outputs/direct/M4_plot.png",
        units = "in")
 ```
 
-## Microbially-mediated impacts of contaminants
+## Microbially-mediated (i.e., indirect) impacts of contaminants
 
 DESCRIPTION
 
@@ -920,6 +920,174 @@ write.csv(cont, "./model_outputs/indirect/cont3.csv",
           row.names = FALSE)
 ```
 
+#### M4: comparing effect sizes for direct and indirect 
+
+```{r eff_size}
+## load raw data
+load(file = "./direct-formatted.Rda") ## loads direct
+
+### filter direct to just peas
+direct.p <- direct %>%
+  filter(species == "pea") %>%
+  droplevels(.)
+
+### make slurry ID consistent
+direct.p$spike_amend <- ifelse(direct.p$spiking_level == 0, "US",
+                             ifelse(direct.p$spiking_level == 1, "SL1",
+                                    "SL2"))
+direct.p$slurry_ID <- ifelse(direct.p$contam == "control",
+                             paste0(direct.p$sample_ID, "Control"),
+                              paste0(direct.p$sample_ID,
+                                     direct.p$spike_amend, "-",
+                                     direct.p$contam, "-P"))
+
+### calculate additional per-plant traits
+direct.p$per_plant_total_weight <- direct.p$per_plant_weight
+direct.p$per_plant_shoot_weight <- direct.p$dry_shoot_weight / direct.p$plants
+direct.p$per_plant_root_weight <- direct.p$dry_root_weight / direct.p$plants
+
+### wide to long
+selected_traits <- c("wet_shoot_weight", "dry_shoot_weight",
+                     "wet_root_weight", "dry_root_weight",
+                     "shoot_root_ratio","shoot_moisture", 
+                     "dry_total_weight","per_plant_total_weight",
+                     "per_plant_shoot_weight","per_plant_root_weight")
+
+### convert to wide
+direct.l <- direct.p %>%
+  pivot_longer(
+    cols = all_of(selected_traits),
+    names_to = "trait",
+    values_to = "raw_data"
+  )
+
+direct.l$slurry_trait <- paste0(direct.l$slurry_ID,"-",
+                                direct.l$trait)
+
+### normalize to controls
+direct.controls <- direct.l %>%
+  filter(contam == "control") %>%
+  group_by(trait) %>%
+  summarize(mean_controls = mean(raw_data, na.rm = TRUE))
+direct.l$mean_controls <- 
+  direct.controls$mean_controls[match(direct.l$trait, 
+                                      direct.controls$trait)]
+direct.l <- direct.l %>%
+  mutate(raw_norm = log2(raw_data/mean_controls))
+
+## load emmeans
+load(file = "./model_outputs/indirect/emm1.Rda") ## loads emm
+
+### emms add in per plant traits
+emm1 <- emm %>%
+  filter(trait == "dry_shoot_weight") %>%
+  droplevels(.)
+emm1$trait <- "per_plant_shoot_weight"
+emm2 <- emm %>%
+  filter(trait == "dry_root_weight") %>%
+  droplevels(.)
+emm2$trait <- "per_plant_root_weight"
+emm3 <- emm %>%
+  filter(trait == "dry_total_weight") %>%
+  droplevels(.)
+emm3$trait <- "per_plant_total_weight"
+emm.c <- rbind(emm, emm1, emm2, emm3)
+
+### normalize to controls
+emm.controls <- emm.c %>%
+  filter(contam == "control") %>%
+  group_by(trait) %>%
+  summarize(mean_controls = mean(response, na.rm = TRUE))
+emm.c$mean_controls <- 
+  emm.controls$mean_controls[match(emm.c$trait, 
+                                      emm.controls$trait)]
+emm.c <- emm.c %>%
+  mutate(resp_norm = log2(response/mean_controls))
+
+emm.c$slurry_trait <- paste0(emm.c$treatment,"-",
+                                emm.c$trait)
+
+emm.s <- emm.c %>%
+  select(where(is.numeric), slurry_trait, -mean_controls)
+
+## combine direct and indirect
+comb <- left_join(direct.l, emm.s, by = "slurry_trait")
+
+save(comb, file = "./model_outputs/indirect/eff_comp.Rda")
+
+## linear models
+### set contrasts
+options(contrasts=c("contr.treatment","contr.poly")) 
+
+### source function
+source("./Source_code/lin_reg.func.R")
+
+lreg.out <- sapply(selected_traits, 
+                   lin_reg.func,
+                   df = comb,
+                   simplify = FALSE, 
+                   USE.NAMES = TRUE)
+
+### combine dfs
+### coeffs
+lregs <- lapply(lreg.out, `[[`, 1) %>%
+  bind_rows(.)
+write.csv(lregs, "./model_outputs/indirect/lin_regs.csv", 
+          row.names = TRUE)
+
+## counts for direction
+comb$direction <- ifelse(comb$raw_norm > 0 & 
+                           comb$resp_norm > 0,
+                         "both positive",
+                         ifelse(comb$raw_norm < 0 & 
+                                  comb$resp_norm > 0,
+                                "microbes positive, \n contaminants negative",
+                                ifelse(comb$raw_norm > 0 & 
+                                         comb$resp_norm < 0,
+                                "microbes negative, \n contaminants positive",
+                                       "both negative")))
+
+## plot (proportion of effects)
+ggplot(comb, aes(x = raw_norm, y = resp_norm)) +
+  geom_point(aes(colour = contam_spike)) +
+  geom_hline(aes(yintercept = 0), linetype = 2) +
+  geom_vline(aes(xintercept = 0), linetype = 2) +
+  facet_wrap(~trait, scales = "free", ncol = 2) +
+  scale_colour_manual(values = c("gray",
+                                 "lightblue",
+                                 "cornflowerblue",
+                                 "blue",
+                                 "#EABD8C",
+                                 "#FFAD00",
+                                 "#B06500")) +
+  labs(x = "Direct effects", 
+       y = "Microbially-mediated effects")
+
+### counts per direction
+comb_sum <- comb %>%
+  filter(contam != "control" & is.na(direction) == FALSE) %>%
+  group_by(trait, direction, contam) %>%
+  summarize(prop = n_distinct(slurry_ID)/18)
+  
+comb_sum.w <- comb_sum %>%
+  pivot_wider(
+    names_from = direction,
+    values_from = prop
+  )
+
+kable(comb_sum.w)
+
+ggplot(comb_sum, aes(direction)) +
+  geom_bar(aes(weight = prop, fill = contam)) +
+  facet_wrap(~trait, ncol = 5) +
+  coord_flip() +
+  labs(y = "Proportion",
+       x = "Effect direction") +
+  scale_fill_manual(values = c( "blue",
+                                "#B06500"))
+  
+```
+
 ### Figures
 
 ```{r indirect_figs}
@@ -943,7 +1111,7 @@ trait.list <- c("plant_height4",
 ## source function
 source("./Source_code/plot_emms.func.R")
 
-plot2.out <- sapply(trait.list, 
+plots.out2 <- sapply(trait.list, 
                    plot_emms.func,
                    df = indirect %>%
                      filter(!contam %in% c("saline","no_treat")) %>%

@@ -27,7 +27,8 @@ plot_emms.func <- function(traits, df){
     geom_pointrange(data = emm.f,
                   aes(y = response,
                       ymin = lower.CL,
-                      ymax = upper.CL),
+                      ymax = upper.CL,
+                      group = contam_spike),
                   position = position_jitter(width = 0.3,
                                              height = 0)) +
     geom_hline(data = controls,
