@@ -49,6 +49,7 @@ library("seqRFLP")
 library("DESeq2") 
 library("pheatmap")
 library("circlize")
+library("knitr")
 # library("patchwork") ## couldn't load
 
 #library("AfterSl1p") ## couldn't install
@@ -593,6 +594,7 @@ TP1_plots <- plot_grid(div.out[["Shannon"]][[1]] +
 TP1_plots
 ggsave("./16S_outputs/TP1_div_plots.png",
        width=6, height=8, units = "in")
+include_graphics("./16S_outputs/TP1_div_plots.png")
 
 ## 2)  species x timepoint x amendment? (exclude sources from TP1)
 
@@ -631,6 +633,7 @@ treat_plots <- plot_grid(div.out[["Shannon"]][[1]] +
 treat_plots
 ggsave("./16S_outputs/treat_div_plots.png",
        width=10, height=7, units = "in")
+include_graphics("./16S_outputs/treat_div_plots.png")
 
 ## examine how diversity changes over time:
 richness.df.l <- richness.df %>%
@@ -690,6 +693,7 @@ p
 ## save plot
 ggsave("./16S_outputs/alphadiv_noHOST_TP_rarified.png",
        width = 8, height = 5, units = "in")
+include_graphics("./16S_outputs/alphadiv_noHOST_TP_rarified.png")
 
 
 ## optional code: from phyloseq package
@@ -777,6 +781,7 @@ fig
 
 ggsave("./16S_outputs/alphadiv_noHOST_rarified.png",
        width = 8, height = 5, units = "in")
+include_graphics("./16S_outputs/alphadiv_noHOST_rarified.png")
   
 ## 3) does alpha diversity correlate with plant traits? only look at tp2
 
@@ -833,10 +838,12 @@ Simpson_plots <- plot_grid(plotlist = plot_list[[1]][11:20], ncol = 2)
 Shannon_plots
 ggsave("./16S_outputs/Shannon_v_traits.png",
        width=6, height=12, units = "in")
+include_graphics("./16S_outputs/Shannon_v_traits.png")
 
 Simpson_plots
 ggsave("./16S_outputs/Simpson_v_traits.png",
        width=6, height=12, units = "in")
+include_graphics("./16S_outputs/Simpson_v_traits.png")
 
 ```
 
@@ -901,6 +908,7 @@ p
 ggsave("./16S_outputs/PCoA_plots_all-data.png",
        width = 6, height = 6, units = "in",
        dpi = 400)
+include_graphics("./16S_outputs/PCoA_plots_all-data.png")
 
 #Extract Eigenvalues
 eigenvalues <- RA.ord$values$Eigenvalues
@@ -941,6 +949,7 @@ scree_bs
 ggsave("./16S_outputs/scree_plot_all-data.png",
        width = 6, height = 5, units = "in",
        dpi = 400)
+include_graphics("./16S_outputs/scree_plot_all-data.png")
 
 ## function to compare treatments within each timepoint
 source("./Source_code/beta_plot.func.R")
@@ -975,6 +984,8 @@ fig1
 ggsave("./16S_outputs/PCoA_plots.png",
        width = 8, height = 4, units = "in",
        dpi = 400)
+include_graphics("./16S_outputs/PCoA_plots.png")
+
 
 fig2 <- plot_grid(plots.out[["TP1_NMDS"]][[1]] +
                     ggtitle("One week post planting") +
@@ -991,6 +1002,7 @@ fig2
 ggsave("./16S_outputs/NMDS_plots.png",
        width = 8, height = 4, units = "in",
        dpi = 400)
+include_graphics("./16S_outputs/NMDS_plots.png")
 
 ```
 
@@ -1163,6 +1175,7 @@ ggplot(data = nmds_scores, aes(x = NMDS1, y = NMDS2)) +
 ggsave("./16S_outputs/NMDS_trait_vec.png",
        width = 7, height = 6, units = "in",
        dpi = 400)
+include_graphics("./16S_outputs/NMDS_trait_vec.png")
 
 
 ```
@@ -1577,6 +1590,7 @@ ggplot(res_sig, aes(x = crop,
 ## save
 ggsave("./16S_outputs/heatmap_ASVfamily.png",
        width = 6, height = 12, units = "in")
+include_graphics("./16S_outputs/heatmap_ASVfamily.png")
 
 # Calculate mean log2FoldChange per Phylum
 phylum_order <- res_sig %>%
@@ -1606,6 +1620,7 @@ ggplot(res_sig, aes(x = crop,
 ## save
 ggsave("./16S_outputs/heatmap_ASVphylum.png",
        width = 6, height = 10, units = "in")
+include_graphics("./16S_outputs/heatmap_ASVphylum.png")
 ```
 
 ## Extra code

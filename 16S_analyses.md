@@ -681,41 +681,41 @@ div.out <- sapply(metric.list,
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.33695 -0.03621  0.01078  0.04056  0.30362 
+    ## -0.32101 -0.03548  0.01299  0.04379  0.29559 
     ## 
     ## Coefficients:
     ##                                     Estimate Std. Error t value Pr(>|t|)    
-    ## (Intercept)                          1.90728    0.06306  30.248  < 2e-16 ***
-    ## species_treatL-BS-0                 -0.04000    0.08917  -0.449 0.655720    
-    ## species_treatL-BS-1                 -0.05127    0.08917  -0.575 0.567875    
-    ## species_treatL-BS-2                 -0.04062    0.08917  -0.456 0.650720    
-    ## species_treatL-control-0             0.01256    0.08917   0.141 0.888562    
-    ## species_treatL-RW-0                 -0.25691    0.08917  -2.881 0.005826 ** 
-    ## species_treatL-RW-1                 -0.08339    0.08917  -0.935 0.354202    
-    ## species_treatL-RW-2                 -0.12192    0.08917  -1.367 0.177669    
-    ## species_treatno_plant-Biosolids     -0.21826    0.08917  -2.448 0.017936 *  
-    ## species_treatno_plant-GH: Soil + BS -0.31085    0.08917  -3.486 0.001031 ** 
-    ## species_treatno_plant-GH: Soil only -0.24933    0.08917  -2.796 0.007322 ** 
-    ## species_treatP-BS-0                 -0.20082    0.08917  -2.252 0.028748 *  
-    ## species_treatP-BS-1                 -0.18628    0.08917  -2.089 0.041828 *  
-    ## species_treatP-BS-2                 -0.11378    0.08917  -1.276 0.207880    
-    ## species_treatP-control-0            -0.34867    0.08917  -3.910 0.000279 ***
-    ## species_treatP-RW-0                 -0.13048    0.08917  -1.463 0.149657    
-    ## species_treatP-RW-1                 -0.25117    0.08917  -2.817 0.006928 ** 
-    ## species_treatP-RW-2                 -0.13492    0.08917  -1.513 0.136570    
-    ## species_treatR-BS-0                 -0.11140    0.08917  -1.249 0.217402    
-    ## species_treatR-BS-1                 -0.06572    0.08917  -0.737 0.464592    
-    ## species_treatR-BS-2                 -0.06537    0.08917  -0.733 0.466954    
-    ## species_treatR-control-0            -0.06445    0.08917  -0.723 0.473200    
-    ## species_treatR-RW-0                 -0.07924    0.08917  -0.889 0.378468    
-    ## species_treatR-RW-1                 -0.16452    0.08917  -1.845 0.070967 .  
-    ## species_treatR-RW-2                 -0.10377    0.08917  -1.164 0.250067    
+    ## (Intercept)                          1.90608    0.06148  31.004  < 2e-16 ***
+    ## species_treatL-BS-0                 -0.03986    0.08694  -0.458 0.648641    
+    ## species_treatL-BS-1                 -0.04726    0.08694  -0.544 0.589148    
+    ## species_treatL-BS-2                 -0.03988    0.08694  -0.459 0.648453    
+    ## species_treatL-control-0             0.01414    0.08694   0.163 0.871502    
+    ## species_treatL-RW-0                 -0.25685    0.08694  -2.954 0.004768 ** 
+    ## species_treatL-RW-1                 -0.08069    0.08694  -0.928 0.357836    
+    ## species_treatL-RW-2                 -0.11450    0.08694  -1.317 0.193863    
+    ## species_treatno_plant-Biosolids     -0.21501    0.08694  -2.473 0.016843 *  
+    ## species_treatno_plant-GH: Soil + BS -0.31116    0.08694  -3.579 0.000778 ***
+    ## species_treatno_plant-GH: Soil only -0.24862    0.08694  -2.860 0.006173 ** 
+    ## species_treatP-BS-0                 -0.19960    0.08694  -2.296 0.025917 *  
+    ## species_treatP-BS-1                 -0.18483    0.08694  -2.126 0.038473 *  
+    ## species_treatP-BS-2                 -0.10799    0.08694  -1.242 0.220011    
+    ## species_treatP-control-0            -0.34554    0.08694  -3.974 0.000227 ***
+    ## species_treatP-RW-0                 -0.13172    0.08694  -1.515 0.136070    
+    ## species_treatP-RW-1                 -0.24610    0.08694  -2.831 0.006676 ** 
+    ## species_treatP-RW-2                 -0.13645    0.08694  -1.569 0.122853    
+    ## species_treatR-BS-0                 -0.11164    0.08694  -1.284 0.205063    
+    ## species_treatR-BS-1                 -0.06648    0.08694  -0.765 0.448082    
+    ## species_treatR-BS-2                 -0.06450    0.08694  -0.742 0.461677    
+    ## species_treatR-control-0            -0.05992    0.08694  -0.689 0.493910    
+    ## species_treatR-RW-0                 -0.07933    0.08694  -0.912 0.365916    
+    ## species_treatR-RW-1                 -0.16435    0.08694  -1.890 0.064518 .  
+    ## species_treatR-RW-2                 -0.10369    0.08694  -1.193 0.238640    
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.1092 on 50 degrees of freedom
-    ## Multiple R-squared:  0.5256, Adjusted R-squared:  0.2979 
-    ## F-statistic: 2.308 on 24 and 50 DF,  p-value: 0.006334
+    ## Residual standard error: 0.1065 on 50 degrees of freedom
+    ## Multiple R-squared:  0.5375, Adjusted R-squared:  0.3155 
+    ## F-statistic: 2.421 on 24 and 50 DF,  p-value: 0.004195
     ## 
     ## [1] "InvSimpson"
 
@@ -728,41 +728,41 @@ div.out <- sapply(metric.list,
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -2.07629 -0.47144  0.05363  0.47027  1.91560 
+    ## -2.05172 -0.47754  0.06324  0.47714  1.89023 
     ## 
     ## Coefficients:
     ##                                     Estimate Std. Error t value Pr(>|t|)    
-    ## (Intercept)                           6.0820     0.5196  11.706 6.19e-16 ***
-    ## species_treatL-BS-0                  -0.8062     0.7348  -1.097 0.277832    
-    ## species_treatL-BS-1                  -0.9106     0.7348  -1.239 0.221018    
-    ## species_treatL-BS-2                  -0.7172     0.7348  -0.976 0.333735    
-    ## species_treatL-control-0             -0.4328     0.7348  -0.589 0.558526    
-    ## species_treatL-RW-0                  -2.6449     0.7348  -3.600 0.000731 ***
-    ## species_treatL-RW-1                  -1.2106     0.7348  -1.648 0.105707    
-    ## species_treatL-RW-2                  -1.1313     0.7348  -1.540 0.129939    
-    ## species_treatno_plant-Biosolids      -1.4664     0.7348  -1.996 0.051437 .  
-    ## species_treatno_plant-GH: Soil + BS  -2.2633     0.7348  -3.080 0.003358 ** 
-    ## species_treatno_plant-GH: Soil only  -1.7700     0.7348  -2.409 0.019726 *  
-    ## species_treatP-BS-0                  -1.8499     0.7348  -2.518 0.015067 *  
-    ## species_treatP-BS-1                  -2.0119     0.7348  -2.738 0.008539 ** 
-    ## species_treatP-BS-2                  -1.1804     0.7348  -1.606 0.114485    
-    ## species_treatP-control-0             -2.4183     0.7348  -3.291 0.001834 ** 
-    ## species_treatP-RW-0                  -1.9338     0.7348  -2.632 0.011264 *  
-    ## species_treatP-RW-1                  -2.5686     0.7348  -3.496 0.001001 ** 
-    ## species_treatP-RW-2                  -1.6132     0.7348  -2.195 0.032801 *  
-    ## species_treatR-BS-0                  -1.0299     0.7348  -1.402 0.167190    
-    ## species_treatR-BS-1                  -1.0590     0.7348  -1.441 0.155767    
-    ## species_treatR-BS-2                  -0.8750     0.7348  -1.191 0.239341    
-    ## species_treatR-control-0             -1.2858     0.7348  -1.750 0.086275 .  
-    ## species_treatR-RW-0                  -1.3068     0.7348  -1.778 0.081404 .  
-    ## species_treatR-RW-1                  -1.7178     0.7348  -2.338 0.023435 *  
-    ## species_treatR-RW-2                  -1.5212     0.7348  -2.070 0.043618 *  
+    ## (Intercept)                           6.0812     0.5138  11.836 4.11e-16 ***
+    ## species_treatL-BS-0                  -0.7806     0.7266  -1.074 0.287832    
+    ## species_treatL-BS-1                  -0.8740     0.7266  -1.203 0.234725    
+    ## species_treatL-BS-2                  -0.7046     0.7266  -0.970 0.336856    
+    ## species_treatL-control-0             -0.4052     0.7266  -0.558 0.579576    
+    ## species_treatL-RW-0                  -2.6401     0.7266  -3.633 0.000659 ***
+    ## species_treatL-RW-1                  -1.1875     0.7266  -1.634 0.108489    
+    ## species_treatL-RW-2                  -1.1030     0.7266  -1.518 0.135316    
+    ## species_treatno_plant-Biosolids      -1.4354     0.7266  -1.975 0.053751 .  
+    ## species_treatno_plant-GH: Soil + BS  -2.2627     0.7266  -3.114 0.003052 ** 
+    ## species_treatno_plant-GH: Soil only  -1.7555     0.7266  -2.416 0.019386 *  
+    ## species_treatP-BS-0                  -1.8787     0.7266  -2.585 0.012687 *  
+    ## species_treatP-BS-1                  -2.0284     0.7266  -2.792 0.007410 ** 
+    ## species_treatP-BS-2                  -1.1413     0.7266  -1.571 0.122567    
+    ## species_treatP-control-0             -2.4370     0.7266  -3.354 0.001527 ** 
+    ## species_treatP-RW-0                  -1.9561     0.7266  -2.692 0.009635 ** 
+    ## species_treatP-RW-1                  -2.5489     0.7266  -3.508 0.000965 ***
+    ## species_treatP-RW-2                  -1.6074     0.7266  -2.212 0.031554 *  
+    ## species_treatR-BS-0                  -1.0315     0.7266  -1.420 0.161928    
+    ## species_treatR-BS-1                  -1.0589     0.7266  -1.457 0.151290    
+    ## species_treatR-BS-2                  -0.8662     0.7266  -1.192 0.238836    
+    ## species_treatR-control-0             -1.2233     0.7266  -1.684 0.098509 .  
+    ## species_treatR-RW-0                  -1.3314     0.7266  -1.832 0.072871 .  
+    ## species_treatR-RW-1                  -1.7053     0.7266  -2.347 0.022932 *  
+    ## species_treatR-RW-2                  -1.5561     0.7266  -2.142 0.037121 *  
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.8999 on 50 degrees of freedom
-    ## Multiple R-squared:  0.4376, Adjusted R-squared:  0.1676 
-    ## F-statistic: 1.621 on 24 and 50 DF,  p-value: 0.07493
+    ## Residual standard error: 0.8899 on 50 degrees of freedom
+    ## Multiple R-squared:  0.449,  Adjusted R-squared:  0.1845 
+    ## F-statistic: 1.697 on 24 and 50 DF,  p-value: 0.05745
 
 ``` r
 ### combine dfs and save
@@ -793,7 +793,12 @@ TP1_plots
 ``` r
 ggsave("./16S_outputs/TP1_div_plots.png",
        width=6, height=8, units = "in")
+include_graphics("./16S_outputs/TP1_div_plots.png")
+```
 
+![](./16S_outputs/TP1_div_plots.png)<!-- -->
+
+``` r
 ## 2)  species x timepoint x amendment? (exclude sources from TP1)
 
 ### function
@@ -822,58 +827,58 @@ div.out <- sapply(metric.list,
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.33695 -0.02280  0.00642  0.03390  0.30362 
+    ## -0.32101 -0.02213  0.00605  0.03322  0.29559 
     ## 
     ## Coefficients:
-    ##                                     Estimate Std. Error t value Pr(>|t|)    
-    ## (Intercept)                         1.919837   0.050256  38.201  < 2e-16 ***
-    ## speciesP                           -0.361225   0.071072  -5.083 2.22e-06 ***
-    ## speciesR                           -0.077010   0.071072  -1.084 0.281666    
-    ## timepointTP2                       -0.046731   0.071072  -0.658 0.512644    
-    ## treat.rnRW-0                       -0.269467   0.071072  -3.791 0.000281 ***
-    ## treat.rnRW-1                       -0.095951   0.071072  -1.350 0.180626    
-    ## treat.rnRW-2                       -0.134481   0.071072  -1.892 0.061913 .  
-    ## treat.rnBS-0                       -0.052555   0.071072  -0.739 0.461688    
-    ## treat.rnBS-1                       -0.063834   0.071072  -0.898 0.371670    
-    ## treat.rnBS-2                       -0.053178   0.071072  -0.748 0.456411    
-    ## speciesP:timepointTP2               0.367729   0.100511   3.659 0.000442 ***
-    ## speciesR:timepointTP2               0.007549   0.100511   0.075 0.940306    
-    ## speciesP:treat.rnRW-0               0.487648   0.100511   4.852 5.57e-06 ***
-    ## speciesR:treat.rnRW-0               0.254677   0.100511   2.534 0.013140 *  
-    ## speciesP:treat.rnRW-1               0.193442   0.100511   1.925 0.057667 .  
-    ## speciesR:treat.rnRW-1              -0.004123   0.100511  -0.041 0.967377    
-    ## speciesP:treat.rnRW-2               0.348224   0.100511   3.465 0.000839 ***
-    ## speciesR:treat.rnRW-2               0.095159   0.100511   0.947 0.346481    
-    ## speciesP:treat.rnBS-0               0.200405   0.100511   1.994 0.049412 *  
-    ## speciesR:treat.rnBS-0               0.005608   0.100511   0.056 0.955639    
-    ## speciesP:treat.rnBS-1               0.226224   0.100511   2.251 0.027015 *  
-    ## speciesR:treat.rnBS-1               0.062567   0.100511   0.622 0.535308    
-    ## speciesP:treat.rnBS-2               0.288065   0.100511   2.866 0.005252 ** 
-    ## speciesR:treat.rnBS-2               0.052260   0.100511   0.520 0.604470    
-    ## timepointTP2:treat.rnRW-0           0.275535   0.100511   2.741 0.007475 ** 
-    ## timepointTP2:treat.rnRW-1           0.128882   0.100511   1.282 0.203276    
-    ## timepointTP2:treat.rnRW-2           0.134782   0.100511   1.341 0.183548    
-    ## timepointTP2:treat.rnBS-0           0.067337   0.100511   0.670 0.504731    
-    ## timepointTP2:treat.rnBS-1           0.056697   0.100511   0.564 0.574200    
-    ## timepointTP2:treat.rnBS-2           0.066560   0.100511   0.662 0.509647    
-    ## speciesP:timepointTP2:treat.rnRW-0 -0.541248   0.142144  -3.808 0.000266 ***
-    ## speciesR:timepointTP2:treat.rnRW-0 -0.201670   0.142144  -1.419 0.159665    
-    ## speciesP:timepointTP2:treat.rnRW-1 -0.302613   0.142144  -2.129 0.036189 *  
-    ## speciesR:timepointTP2:treat.rnRW-1  0.015337   0.142144   0.108 0.914334    
-    ## speciesP:timepointTP2:treat.rnRW-2 -0.342604   0.142144  -2.410 0.018124 *  
-    ## speciesR:timepointTP2:treat.rnRW-2 -0.078609   0.142144  -0.553 0.581715    
-    ## speciesP:timepointTP2:treat.rnBS-0 -0.234831   0.142144  -1.652 0.102256    
-    ## speciesR:timepointTP2:treat.rnBS-0  0.031298   0.142144   0.220 0.826263    
-    ## speciesP:timepointTP2:treat.rnBS-1 -0.262260   0.142144  -1.845 0.068558 .  
-    ## speciesR:timepointTP2:treat.rnBS-1 -0.021809   0.142144  -0.153 0.878430    
-    ## speciesP:timepointTP2:treat.rnBS-2 -0.336643   0.142144  -2.368 0.020165 *  
-    ## speciesR:timepointTP2:treat.rnBS-2 -0.059237   0.142144  -0.417 0.677931    
+    ##                                      Estimate Std. Error t value Pr(>|t|)    
+    ## (Intercept)                         1.9202199  0.0489962  39.191  < 2e-16 ***
+    ## speciesP                           -0.3596710  0.0692911  -5.191 1.43e-06 ***
+    ## speciesR                           -0.0740535  0.0692911  -1.069 0.288253    
+    ## timepointTP2                       -0.0447248  0.0692911  -0.645 0.520387    
+    ## treat.rnRW-0                       -0.2709885  0.0692911  -3.911 0.000186 ***
+    ## treat.rnRW-1                       -0.0948244  0.0692911  -1.368 0.174807    
+    ## treat.rnRW-2                       -0.1286353  0.0692911  -1.856 0.066896 .  
+    ## treat.rnBS-0                       -0.0539919  0.0692911  -0.779 0.438050    
+    ## treat.rnBS-1                       -0.0613963  0.0692911  -0.886 0.378114    
+    ## treat.rnBS-2                       -0.0540147  0.0692911  -0.780 0.437857    
+    ## speciesP:timepointTP2               0.3638898  0.0979925   3.713 0.000367 ***
+    ## speciesR:timepointTP2               0.0001419  0.0979925   0.001 0.998848    
+    ## speciesP:treat.rnRW-0               0.4848045  0.0979925   4.947 3.82e-06 ***
+    ## speciesR:treat.rnRW-0               0.2515755  0.0979925   2.567 0.012021 *  
+    ## speciesP:treat.rnRW-1               0.1942631  0.0979925   1.982 0.050700 .  
+    ## speciesR:treat.rnRW-1              -0.0096097  0.0979925  -0.098 0.922114    
+    ## speciesP:treat.rnRW-2               0.3377178  0.0979925   3.446 0.000890 ***
+    ## speciesR:treat.rnRW-2               0.0848606  0.0979925   0.866 0.388962    
+    ## speciesP:treat.rnBS-0               0.1999225  0.0979925   2.040 0.044474 *  
+    ## speciesR:treat.rnBS-0               0.0022747  0.0979925   0.023 0.981536    
+    ## speciesP:treat.rnBS-1               0.2220983  0.0979925   2.266 0.025992 *  
+    ## speciesR:treat.rnBS-1               0.0548338  0.0979925   0.560 0.577261    
+    ## speciesP:treat.rnBS-2               0.2915613  0.0979925   2.975 0.003821 ** 
+    ## speciesR:treat.rnBS-2               0.0494374  0.0979925   0.505 0.615230    
+    ## timepointTP2:treat.rnRW-0           0.2748950  0.0979925   2.805 0.006245 ** 
+    ## timepointTP2:treat.rnRW-1           0.1261648  0.0979925   1.287 0.201458    
+    ## timepointTP2:treat.rnRW-2           0.1297686  0.0979925   1.324 0.189005    
+    ## timepointTP2:treat.rnBS-0           0.0671293  0.0979925   0.685 0.495201    
+    ## timepointTP2:treat.rnBS-1           0.0517699  0.0979925   0.528 0.598681    
+    ## timepointTP2:treat.rnBS-2           0.0658619  0.0979925   0.672 0.503357    
+    ## speciesP:timepointTP2:treat.rnRW-0 -0.5360318  0.1385823  -3.868 0.000216 ***
+    ## speciesR:timepointTP2:treat.rnRW-0 -0.1934698  0.1385823  -1.396 0.166374    
+    ## speciesP:timepointTP2:treat.rnRW-1 -0.3027749  0.1385823  -2.185 0.031689 *  
+    ## speciesR:timepointTP2:treat.rnRW-1  0.0233628  0.1385823   0.169 0.866529    
+    ## speciesP:timepointTP2:treat.rnRW-2 -0.3336503  0.1385823  -2.408 0.018248 *  
+    ## speciesR:timepointTP2:treat.rnRW-2 -0.0673841  0.1385823  -0.486 0.628064    
+    ## speciesP:timepointTP2:treat.rnBS-0 -0.2322562  0.1385823  -1.676 0.097468 .  
+    ## speciesR:timepointTP2:treat.rnBS-0  0.0387555  0.1385823   0.280 0.780428    
+    ## speciesP:timepointTP2:treat.rnBS-1 -0.2548251  0.1385823  -1.839 0.069478 .  
+    ## speciesR:timepointTP2:treat.rnBS-1 -0.0111063  0.1385823  -0.080 0.936314    
+    ## speciesP:timepointTP2:treat.rnBS-2 -0.3374176  0.1385823  -2.435 0.017018 *  
+    ## speciesR:timepointTP2:treat.rnBS-2 -0.0531699  0.1385823  -0.384 0.702192    
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.08705 on 84 degrees of freedom
-    ## Multiple R-squared:  0.5087, Adjusted R-squared:  0.2689 
-    ## F-statistic: 2.121 on 41 and 84 DF,  p-value: 0.001851
+    ## Residual standard error: 0.08486 on 84 degrees of freedom
+    ## Multiple R-squared:  0.5209, Adjusted R-squared:  0.2871 
+    ## F-statistic: 2.228 on 41 and 84 DF,  p-value: 0.0009893
     ## 
     ## [1] "InvSimpson"
 
@@ -887,58 +892,58 @@ div.out <- sapply(metric.list,
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -2.07629 -0.26775  0.04226  0.30974  1.91560 
+    ## -2.05172 -0.26320  0.05258  0.29775  1.89023 
     ## 
     ## Coefficients:
     ##                                    Estimate Std. Error t value Pr(>|t|)    
-    ## (Intercept)                          5.6492     0.4476  12.620  < 2e-16 ***
-    ## speciesP                            -1.9855     0.6331  -3.136 0.002358 ** 
-    ## speciesR                            -0.8530     0.6331  -1.347 0.181461    
-    ## timepointTP2                        -0.3878     0.6331  -0.613 0.541774    
-    ## treat.rnRW-0                        -2.2122     0.6331  -3.494 0.000761 ***
-    ## treat.rnRW-1                        -0.7779     0.6331  -1.229 0.222607    
-    ## treat.rnRW-2                        -0.6986     0.6331  -1.103 0.272965    
-    ## treat.rnBS-0                        -0.3734     0.6331  -0.590 0.556889    
-    ## treat.rnBS-1                        -0.4779     0.6331  -0.755 0.452463    
-    ## treat.rnBS-2                        -0.2844     0.6331  -0.449 0.654389    
-    ## speciesP:timepointTP2                2.5917     0.8953   2.895 0.004833 ** 
-    ## speciesR:timepointTP2                0.6514     0.8953   0.728 0.468872    
-    ## speciesP:treat.rnRW-0                2.6966     0.8953   3.012 0.003428 ** 
-    ## speciesR:treat.rnRW-0                2.1911     0.8953   2.447 0.016471 *  
-    ## speciesP:treat.rnRW-1                0.6275     0.8953   0.701 0.485271    
-    ## speciesR:treat.rnRW-1                0.3458     0.8953   0.386 0.700297    
-    ## speciesP:treat.rnRW-2                1.5037     0.8953   1.680 0.096757 .  
-    ## speciesR:treat.rnRW-2                0.4632     0.8953   0.517 0.606249    
-    ## speciesP:treat.rnBS-0                0.9418     0.8953   1.052 0.295820    
-    ## speciesR:treat.rnBS-0                0.6292     0.8953   0.703 0.484092    
-    ## speciesP:treat.rnBS-1                0.8842     0.8953   0.988 0.326148    
-    ## speciesR:treat.rnBS-1                0.7047     0.8953   0.787 0.433439    
-    ## speciesP:treat.rnBS-2                1.5224     0.8953   1.700 0.092751 .  
-    ## speciesR:treat.rnBS-2                0.6952     0.8953   0.777 0.439629    
-    ## timepointTP2:treat.rnRW-0            2.7002     0.8953   3.016 0.003388 ** 
-    ## timepointTP2:treat.rnRW-1            1.6050     0.8953   1.793 0.076623 .  
-    ## timepointTP2:treat.rnRW-2            1.3158     0.8953   1.470 0.145376    
-    ## timepointTP2:treat.rnBS-0            1.0082     0.8953   1.126 0.263310    
-    ## timepointTP2:treat.rnBS-1            1.0518     0.8953   1.175 0.243365    
-    ## timepointTP2:treat.rnBS-2            0.9350     0.8953   1.044 0.299296    
-    ## speciesP:timepointTP2:treat.rnRW-0  -3.3179     1.2661  -2.621 0.010417 *  
-    ## speciesR:timepointTP2:treat.rnRW-0  -1.9384     1.2661  -1.531 0.129539    
-    ## speciesP:timepointTP2:treat.rnRW-1  -1.8285     1.2661  -1.444 0.152411    
-    ## speciesR:timepointTP2:treat.rnRW-1  -0.6772     1.2661  -0.535 0.594170    
-    ## speciesP:timepointTP2:treat.rnRW-2  -1.9589     1.2661  -1.547 0.125579    
-    ## speciesR:timepointTP2:treat.rnRW-2  -0.8136     1.2661  -0.643 0.522246    
-    ## speciesP:timepointTP2:treat.rnBS-0  -1.7595     1.2661  -1.390 0.168306    
-    ## speciesR:timepointTP2:treat.rnBS-0  -0.6402     1.2661  -0.506 0.614461    
-    ## speciesP:timepointTP2:treat.rnBS-1  -1.6856     1.2661  -1.331 0.186685    
-    ## speciesR:timepointTP2:treat.rnBS-1  -0.6689     1.2661  -0.528 0.598702    
-    ## speciesP:timepointTP2:treat.rnBS-2  -2.4064     1.2661  -1.901 0.060787 .  
-    ## speciesR:timepointTP2:treat.rnBS-2  -1.0289     1.2661  -0.813 0.418729    
+    ## (Intercept)                          5.6760     0.4435  12.798  < 2e-16 ***
+    ## speciesP                            -2.0318     0.6272  -3.239 0.001717 ** 
+    ## speciesR                            -0.8181     0.6272  -1.304 0.195690    
+    ## timepointTP2                        -0.3888     0.6272  -0.620 0.536998    
+    ## treat.rnRW-0                        -2.2349     0.6272  -3.563 0.000607 ***
+    ## treat.rnRW-1                        -0.7823     0.6272  -1.247 0.215781    
+    ## treat.rnRW-2                        -0.6978     0.6272  -1.113 0.269078    
+    ## treat.rnBS-0                        -0.3754     0.6272  -0.599 0.551067    
+    ## treat.rnBS-1                        -0.4688     0.6272  -0.747 0.456918    
+    ## treat.rnBS-2                        -0.2994     0.6272  -0.477 0.634332    
+    ## speciesP:timepointTP2                2.6268     0.8870   2.961 0.003981 ** 
+    ## speciesR:timepointTP2                0.5649     0.8870   0.637 0.525973    
+    ## speciesP:treat.rnRW-0                2.7158     0.8870   3.062 0.002956 ** 
+    ## speciesR:treat.rnRW-0                2.1269     0.8870   2.398 0.018712 *  
+    ## speciesP:treat.rnRW-1                0.6704     0.8870   0.756 0.451903    
+    ## speciesR:treat.rnRW-1                0.3002     0.8870   0.338 0.735841    
+    ## speciesP:treat.rnRW-2                1.5274     0.8870   1.722 0.088768 .  
+    ## speciesR:treat.rnRW-2                0.3649     0.8870   0.411 0.681805    
+    ## speciesP:treat.rnBS-0                0.9337     0.8870   1.053 0.295517    
+    ## speciesR:treat.rnBS-0                0.5672     0.8870   0.639 0.524271    
+    ## speciesP:treat.rnBS-1                0.8773     0.8870   0.989 0.325474    
+    ## speciesR:treat.rnBS-1                0.6332     0.8870   0.714 0.477325    
+    ## speciesP:treat.rnBS-2                1.5951     0.8870   1.798 0.075730 .  
+    ## speciesR:treat.rnBS-2                0.6565     0.8870   0.740 0.461311    
+    ## timepointTP2:treat.rnRW-0            2.7099     0.8870   3.055 0.003016 ** 
+    ## timepointTP2:treat.rnRW-1            1.6089     0.8870   1.814 0.073274 .  
+    ## timepointTP2:treat.rnRW-2            1.3150     0.8870   1.483 0.141942    
+    ## timepointTP2:treat.rnBS-0            1.0034     0.8870   1.131 0.261203    
+    ## timepointTP2:treat.rnBS-1            1.0082     0.8870   1.137 0.258915    
+    ## timepointTP2:treat.rnBS-2            0.9350     0.8870   1.054 0.294867    
+    ## speciesP:timepointTP2:treat.rnRW-0  -3.3296     1.2544  -2.654 0.009505 ** 
+    ## speciesR:timepointTP2:treat.rnRW-0  -1.8221     1.2544  -1.453 0.150073    
+    ## speciesP:timepointTP2:treat.rnRW-1  -1.9001     1.2544  -1.515 0.133603    
+    ## speciesR:timepointTP2:treat.rnRW-1  -0.6012     1.2544  -0.479 0.633024    
+    ## speciesP:timepointTP2:treat.rnRW-2  -2.0062     1.2544  -1.599 0.113519    
+    ## speciesR:timepointTP2:treat.rnRW-2  -0.7016     1.2544  -0.559 0.577429    
+    ## speciesP:timepointTP2:treat.rnBS-0  -1.7572     1.2544  -1.401 0.164973    
+    ## speciesR:timepointTP2:treat.rnBS-0  -0.5378     1.2544  -0.429 0.669248    
+    ## speciesP:timepointTP2:treat.rnBS-1  -1.6401     1.2544  -1.307 0.194627    
+    ## speciesR:timepointTP2:treat.rnBS-1  -0.5615     1.2544  -0.448 0.655577    
+    ## speciesP:timepointTP2:treat.rnBS-2  -2.4592     1.2544  -1.960 0.053265 .  
+    ## speciesR:timepointTP2:treat.rnBS-2  -0.9543     1.2544  -0.761 0.448940    
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.7753 on 84 degrees of freedom
-    ## Multiple R-squared:  0.5452, Adjusted R-squared:  0.3232 
-    ## F-statistic: 2.456 on 41 and 84 DF,  p-value: 0.0002559
+    ## Residual standard error: 0.7682 on 84 degrees of freedom
+    ## Multiple R-squared:  0.5536, Adjusted R-squared:  0.3356 
+    ## F-statistic:  2.54 on 41 and 84 DF,  p-value: 0.0001551
 
 ``` r
 aov <- lapply(div.out, `[[`, 2) %>%
@@ -963,12 +968,17 @@ treat_plots <- plot_grid(div.out[["Shannon"]][[1]] +
 treat_plots
 ```
 
-![](16S_analyses_files/figure-gfm/alpha_div-2.png)<!-- -->
+![](16S_analyses_files/figure-gfm/alpha_div-3.png)<!-- -->
 
 ``` r
 ggsave("./16S_outputs/treat_div_plots.png",
        width=10, height=7, units = "in")
+include_graphics("./16S_outputs/treat_div_plots.png")
+```
 
+![](./16S_outputs/treat_div_plots.png)<!-- -->
+
+``` r
 ## examine how diversity changes over time:
 richness.df.l <- richness.df %>%
       filter(!timepoint %in% c("other")) %>%
@@ -1026,14 +1036,18 @@ p <-
 p
 ```
 
-![](16S_analyses_files/figure-gfm/alpha_div-3.png)<!-- -->
+![](16S_analyses_files/figure-gfm/alpha_div-5.png)<!-- -->
 
 ``` r
 ## save plot
 ggsave("./16S_outputs/alphadiv_noHOST_TP_rarified.png",
        width = 8, height = 5, units = "in")
+include_graphics("./16S_outputs/alphadiv_noHOST_TP_rarified.png")
+```
 
+![](./16S_outputs/alphadiv_noHOST_TP_rarified.png)<!-- -->
 
+``` r
 ## optional code: from phyloseq package
 ## figures
 source("./Source_code/alpha_plot.func.R")
@@ -1125,12 +1139,17 @@ fig <- plot_grid(fig1, fig2,
 fig
 ```
 
-![](16S_analyses_files/figure-gfm/alpha_div-4.png)<!-- -->
+![](16S_analyses_files/figure-gfm/alpha_div-7.png)<!-- -->
 
 ``` r
 ggsave("./16S_outputs/alphadiv_noHOST_rarified.png",
        width = 8, height = 5, units = "in")
-  
+include_graphics("./16S_outputs/alphadiv_noHOST_rarified.png")
+```
+
+![](./16S_outputs/alphadiv_noHOST_rarified.png)<!-- -->
+
+``` r
 ## 3) does alpha diversity correlate with plant traits? only look at tp2
 
 ### filter to P_TP1
@@ -1228,21 +1247,29 @@ Simpson_plots <- plot_grid(plotlist = plot_list[[1]][11:20], ncol = 2)
 Shannon_plots
 ```
 
-![](16S_analyses_files/figure-gfm/alpha_div-5.png)<!-- -->
+![](16S_analyses_files/figure-gfm/alpha_div-9.png)<!-- -->
 
 ``` r
 ggsave("./16S_outputs/Shannon_v_traits.png",
        width=6, height=12, units = "in")
+include_graphics("./16S_outputs/Shannon_v_traits.png")
+```
 
+![](./16S_outputs/Shannon_v_traits.png)<!-- -->
+
+``` r
 Simpson_plots
 ```
 
-![](16S_analyses_files/figure-gfm/alpha_div-6.png)<!-- -->
+![](16S_analyses_files/figure-gfm/alpha_div-11.png)<!-- -->
 
 ``` r
 ggsave("./16S_outputs/Simpson_v_traits.png",
        width=6, height=12, units = "in")
+include_graphics("./16S_outputs/Simpson_v_traits.png")
 ```
+
+![](./16S_outputs/Simpson_v_traits.png)<!-- -->
 
 ## Beta diversity
 
@@ -1309,7 +1336,12 @@ p
 ggsave("./16S_outputs/PCoA_plots_all-data.png",
        width = 6, height = 6, units = "in",
        dpi = 400)
+include_graphics("./16S_outputs/PCoA_plots_all-data.png")
+```
 
+![](./16S_outputs/PCoA_plots_all-data.png)<!-- -->
+
+``` r
 #Extract Eigenvalues
 eigenvalues <- RA.ord$values$Eigenvalues
 
@@ -1357,13 +1389,18 @@ scree_bs <- ggplot(scree_data,
 scree_bs
 ```
 
-![](16S_analyses_files/figure-gfm/PCoA-2.png)<!-- -->
+![](16S_analyses_files/figure-gfm/PCoA-3.png)<!-- -->
 
 ``` r
 ggsave("./16S_outputs/scree_plot_all-data.png",
        width = 6, height = 5, units = "in",
        dpi = 400)
+include_graphics("./16S_outputs/scree_plot_all-data.png")
+```
 
+![](./16S_outputs/scree_plot_all-data.png)<!-- -->
+
+``` r
 ## function to compare treatments within each timepoint
 source("./Source_code/beta_plot.func.R")
 
@@ -1388,97 +1425,97 @@ plots.out <- mapply(FUN = beta_plot.func,
     ## [1] "TP1_NMDS"
     ## Square root transformation
     ## Wisconsin double standardization
-    ## Run 0 stress 0.1555584 
-    ## Run 1 stress 0.1555585 
-    ## ... Procrustes: rmse 0.0002853673  max resid 0.001351522 
+    ## Run 0 stress 0.155935 
+    ## Run 1 stress 0.1558486 
+    ## ... New best solution
+    ## ... Procrustes: rmse 0.005603708  max resid 0.02631976 
+    ## Run 2 stress 0.1558586 
+    ## ... Procrustes: rmse 0.002266635  max resid 0.01358814 
+    ## Run 3 stress 0.1974063 
+    ## Run 4 stress 0.1558908 
+    ## ... Procrustes: rmse 0.003419366  max resid 0.01694108 
+    ## Run 5 stress 0.1564204 
+    ## Run 6 stress 0.1568736 
+    ## Run 7 stress 0.1558485 
+    ## ... New best solution
+    ## ... Procrustes: rmse 0.0001073075  max resid 0.0007371243 
     ## ... Similar to previous best
-    ## Run 2 stress 0.15584 
-    ## ... Procrustes: rmse 0.009057366  max resid 0.04899202 
-    ## Run 3 stress 0.1555194 
+    ## Run 8 stress 0.1842731 
+    ## Run 9 stress 0.1844537 
+    ## Run 10 stress 0.1559709 
+    ## ... Procrustes: rmse 0.007643302  max resid 0.03335926 
+    ## Run 11 stress 0.1572688 
+    ## Run 12 stress 0.1559708 
+    ## ... Procrustes: rmse 0.007639521  max resid 0.03348273 
+    ## Run 13 stress 0.1844128 
+    ## Run 14 stress 0.156874 
+    ## Run 15 stress 0.1563045 
+    ## ... Procrustes: rmse 0.01385891  max resid 0.08203808 
+    ## Run 16 stress 0.1558906 
+    ## ... Procrustes: rmse 0.003433034  max resid 0.01691163 
+    ## Run 17 stress 0.1840728 
+    ## Run 18 stress 0.1558485 
     ## ... New best solution
-    ## ... Procrustes: rmse 0.01367243  max resid 0.08235869 
-    ## Run 4 stress 0.1818336 
-    ## Run 5 stress 0.1558786 
-    ## ... Procrustes: rmse 0.01485937  max resid 0.0795835 
-    ## Run 6 stress 0.1558138 
-    ## ... Procrustes: rmse 0.006869595  max resid 0.0432071 
-    ## Run 7 stress 0.155752 
-    ## ... Procrustes: rmse 0.007971097  max resid 0.04527803 
-    ## Run 8 stress 0.1562218 
-    ## Run 9 stress 0.1555168 
-    ## ... New best solution
-    ## ... Procrustes: rmse 0.002675339  max resid 0.01181843 
-    ## Run 10 stress 0.1558462 
-    ## ... Procrustes: rmse 0.01312687  max resid 0.05505922 
-    ## Run 11 stress 0.1556561 
-    ## ... Procrustes: rmse 0.0147205  max resid 0.08397963 
-    ## Run 12 stress 0.1555165 
-    ## ... New best solution
-    ## ... Procrustes: rmse 0.0001264491  max resid 0.0005630328 
+    ## ... Procrustes: rmse 1.370998e-05  max resid 5.762414e-05 
     ## ... Similar to previous best
-    ## Run 13 stress 0.1562219 
-    ## Run 14 stress 0.1559911 
-    ## ... Procrustes: rmse 0.0172251  max resid 0.07905925 
-    ## Run 15 stress 0.1556562 
-    ## ... Procrustes: rmse 0.01476321  max resid 0.08417513 
-    ## Run 16 stress 0.1824192 
-    ## Run 17 stress 0.1557521 
-    ## ... Procrustes: rmse 0.009442058  max resid 0.05049906 
-    ## Run 18 stress 0.1557507 
-    ## ... Procrustes: rmse 0.009699316  max resid 0.05135317 
-    ## Run 19 stress 0.1558176 
-    ## ... Procrustes: rmse 0.01454108  max resid 0.08080951 
-    ## Run 20 stress 0.1556438 
-    ## ... Procrustes: rmse 0.005353962  max resid 0.02834264 
+    ## Run 19 stress 0.1564202 
+    ## Run 20 stress 0.1559707 
+    ## ... Procrustes: rmse 0.007639682  max resid 0.03346999 
     ## *** Best solution repeated 1 times
     ## [1] "TP2_NMDS"
     ## Square root transformation
     ## Wisconsin double standardization
-    ## Run 0 stress 0.1792268 
-    ## Run 1 stress 0.1791917 
+    ## Run 0 stress 0.17962 
+    ## Run 1 stress 0.1796315 
+    ## ... Procrustes: rmse 0.008753795  max resid 0.06182012 
+    ## Run 2 stress 0.17962 
     ## ... New best solution
-    ## ... Procrustes: rmse 0.01009445  max resid 0.05997876 
-    ## Run 2 stress 0.2484264 
-    ## Run 3 stress 0.1791301 
+    ## ... Procrustes: rmse 8.911769e-06  max resid 4.451325e-05 
+    ## ... Similar to previous best
+    ## Run 3 stress 0.2058638 
+    ## Run 4 stress 0.17962 
     ## ... New best solution
-    ## ... Procrustes: rmse 0.009054095  max resid 0.06459537 
-    ## Run 4 stress 0.2684059 
-    ## Run 5 stress 0.1791917 
-    ## ... Procrustes: rmse 0.009058001  max resid 0.06457342 
-    ## Run 6 stress 0.1792268 
-    ## ... Procrustes: rmse 0.007159028  max resid 0.05098633 
-    ## Run 7 stress 0.1791301 
-    ## ... Procrustes: rmse 1.458656e-05  max resid 0.000102312 
+    ## ... Procrustes: rmse 7.889837e-05  max resid 0.0005606217 
     ## ... Similar to previous best
-    ## Run 8 stress 0.1791302 
-    ## ... Procrustes: rmse 5.52962e-05  max resid 0.0004017329 
-    ## ... Similar to previous best
-    ## Run 9 stress 0.1790861 
+    ## Run 5 stress 0.1796315 
+    ## ... Procrustes: rmse 0.008721484  max resid 0.0615267 
+    ## Run 6 stress 0.17962 
     ## ... New best solution
-    ## ... Procrustes: rmse 0.01182448  max resid 0.06564732 
-    ## Run 10 stress 0.1792872 
-    ## ... Procrustes: rmse 0.009505274  max resid 0.06218172 
-    ## Run 11 stress 0.2097836 
-    ## Run 12 stress 0.1791917 
-    ## ... Procrustes: rmse 0.006197701  max resid 0.04308765 
-    ## Run 13 stress 0.1790861 
-    ## ... Procrustes: rmse 2.34598e-05  max resid 0.0001566091 
+    ## ... Procrustes: rmse 3.760743e-05  max resid 0.0002393815 
     ## ... Similar to previous best
-    ## Run 14 stress 0.1791301 
-    ## ... Procrustes: rmse 0.01183017  max resid 0.06573204 
-    ## Run 15 stress 0.1792267 
-    ## ... Procrustes: rmse 0.008540531  max resid 0.06160735 
-    ## Run 16 stress 0.1791301 
-    ## ... Procrustes: rmse 0.01182662  max resid 0.06573828 
-    ## Run 17 stress 0.1791917 
-    ## ... Procrustes: rmse 0.006159348  max resid 0.0427883 
-    ## Run 18 stress 0.1792268 
-    ## ... Procrustes: rmse 0.008492581  max resid 0.06131902 
-    ## Run 19 stress 0.1792267 
-    ## ... Procrustes: rmse 0.008520721  max resid 0.06149965 
-    ## Run 20 stress 0.1792871 
-    ## ... Procrustes: rmse 0.009534003  max resid 0.06236567 
-    ## *** Best solution repeated 1 times
+    ## Run 7 stress 0.1796315 
+    ## ... Procrustes: rmse 0.008745578  max resid 0.0617544 
+    ## Run 8 stress 0.1796315 
+    ## ... Procrustes: rmse 0.00875536  max resid 0.06184414 
+    ## Run 9 stress 0.213978 
+    ## Run 10 stress 0.1796315 
+    ## ... Procrustes: rmse 0.008754703  max resid 0.06184045 
+    ## Run 11 stress 0.2053158 
+    ## Run 12 stress 0.1796315 
+    ## ... Procrustes: rmse 0.00875213  max resid 0.06181642 
+    ## Run 13 stress 0.1796316 
+    ## ... Procrustes: rmse 0.008808672  max resid 0.06232273 
+    ## Run 14 stress 0.1796201 
+    ## ... Procrustes: rmse 4.846874e-05  max resid 0.0003373044 
+    ## ... Similar to previous best
+    ## Run 15 stress 0.17962 
+    ## ... New best solution
+    ## ... Procrustes: rmse 8.89284e-06  max resid 3.914709e-05 
+    ## ... Similar to previous best
+    ## Run 16 stress 0.4057103 
+    ## Run 17 stress 0.17962 
+    ## ... Procrustes: rmse 1.16381e-05  max resid 4.097838e-05 
+    ## ... Similar to previous best
+    ## Run 18 stress 0.1796201 
+    ## ... Procrustes: rmse 7.005514e-05  max resid 0.0005024335 
+    ## ... Similar to previous best
+    ## Run 19 stress 0.17962 
+    ## ... Procrustes: rmse 5.575367e-05  max resid 0.000403136 
+    ## ... Similar to previous best
+    ## Run 20 stress 0.17962 
+    ## ... Procrustes: rmse 2.423289e-05  max resid 0.0001728564 
+    ## ... Similar to previous best
+    ## *** Best solution repeated 5 times
 
 ``` r
 ## combine plots (all crops)
@@ -1493,22 +1530,21 @@ fig1 <- plot_grid(plots.out[["TP1_PCoA"]][[1]] +
           nrow = 1,
           align = "h",
           labels = NULL)
-```
-
-    ## Warning: Removed 1 row containing missing values or values outside the scale range
-    ## (`geom_point()`).
-
-``` r
 fig1
 ```
 
-![](16S_analyses_files/figure-gfm/PCoA-3.png)<!-- -->
+![](16S_analyses_files/figure-gfm/PCoA-5.png)<!-- -->
 
 ``` r
 ggsave("./16S_outputs/PCoA_plots.png",
        width = 8, height = 4, units = "in",
        dpi = 400)
+include_graphics("./16S_outputs/PCoA_plots.png")
+```
 
+![](./16S_outputs/PCoA_plots.png)<!-- -->
+
+``` r
 fig2 <- plot_grid(plots.out[["TP1_NMDS"]][[1]] +
                     ggtitle("One week post planting") +
                     scale_y_continuous(limits = c(-0.7,0.6)), 
@@ -1523,13 +1559,16 @@ fig2 <- plot_grid(plots.out[["TP1_NMDS"]][[1]] +
 fig2
 ```
 
-![](16S_analyses_files/figure-gfm/PCoA-4.png)<!-- -->
+![](16S_analyses_files/figure-gfm/PCoA-7.png)<!-- -->
 
 ``` r
 ggsave("./16S_outputs/NMDS_plots.png",
        width = 8, height = 4, units = "in",
        dpi = 400)
+include_graphics("./16S_outputs/NMDS_plots.png")
 ```
+
+![](./16S_outputs/NMDS_plots.png)<!-- -->
 
 ### Overlay traits as vectors (peas only, TP2)
 
@@ -1566,36 +1605,49 @@ bray_dist <- vegdist(otu_subset, method = "bray")
 nmds <- metaMDS(bray_dist, k = 2, trymax = 100)
 ```
 
-    ## Run 0 stress 0.1029304 
-    ## Run 1 stress 0.1029304 
+    ## Run 0 stress 0.09666116 
+    ## Run 1 stress 0.09666137 
+    ## ... Procrustes: rmse 0.0001442171  max resid 0.000454605 
+    ## ... Similar to previous best
+    ## Run 2 stress 0.09883989 
+    ## Run 3 stress 0.09666138 
+    ## ... Procrustes: rmse 0.0001600866  max resid 0.0005062294 
+    ## ... Similar to previous best
+    ## Run 4 stress 0.09666112 
     ## ... New best solution
-    ## ... Procrustes: rmse 6.938708e-05  max resid 0.0002245845 
+    ## ... Procrustes: rmse 0.0004892427  max resid 0.001558531 
     ## ... Similar to previous best
-    ## Run 2 stress 0.1050569 
-    ## Run 3 stress 0.1036993 
-    ## Run 4 stress 0.1054208 
-    ## Run 5 stress 0.1052144 
-    ## Run 6 stress 0.1054211 
-    ## Run 7 stress 0.1036995 
-    ## Run 8 stress 0.1036994 
-    ## Run 9 stress 0.1036994 
-    ## Run 10 stress 0.1029303 
-    ## ... New best solution
-    ## ... Procrustes: rmse 0.0002050833  max resid 0.0006671094 
+    ## Run 5 stress 0.09991657 
+    ## Run 6 stress 0.09666146 
+    ## ... Procrustes: rmse 0.0002062134  max resid 0.0006548089 
     ## ... Similar to previous best
-    ## Run 11 stress 0.1029304 
-    ## ... Procrustes: rmse 0.0002306846  max resid 0.0007535619 
+    ## Run 7 stress 0.09666137 
+    ## ... Procrustes: rmse 0.0001744869  max resid 0.0005550209 
     ## ... Similar to previous best
-    ## Run 12 stress 0.1050571 
-    ## Run 13 stress 0.1052141 
-    ## Run 14 stress 0.1251926 
-    ## Run 15 stress 0.1052146 
-    ## Run 16 stress 0.1051955 
-    ## Run 17 stress 0.1226563 
-    ## Run 18 stress 0.105215 
-    ## Run 19 stress 0.1304674 
-    ## Run 20 stress 0.1052147 
-    ## *** Best solution repeated 2 times
+    ## Run 8 stress 0.09883983 
+    ## Run 9 stress 0.1132581 
+    ## Run 10 stress 0.1132577 
+    ## Run 11 stress 0.09666117 
+    ## ... Procrustes: rmse 4.353062e-05  max resid 0.0001356617 
+    ## ... Similar to previous best
+    ## Run 12 stress 0.09883981 
+    ## Run 13 stress 0.09991673 
+    ## Run 14 stress 0.09666114 
+    ## ... Procrustes: rmse 2.020009e-05  max resid 5.775378e-05 
+    ## ... Similar to previous best
+    ## Run 15 stress 0.09992526 
+    ## Run 16 stress 0.09991687 
+    ## Run 17 stress 0.09666119 
+    ## ... Procrustes: rmse 5.748544e-05  max resid 0.0001785328 
+    ## ... Similar to previous best
+    ## Run 18 stress 0.09666134 
+    ## ... Procrustes: rmse 0.0006259142  max resid 0.001995494 
+    ## ... Similar to previous best
+    ## Run 19 stress 0.09883999 
+    ## Run 20 stress 0.09666144 
+    ## ... Procrustes: rmse 0.000211765  max resid 0.0006744205 
+    ## ... Similar to previous best
+    ## *** Best solution repeated 8 times
 
 ``` r
 trait.list <- c(
@@ -1640,17 +1692,17 @@ results.traits <- data.frame(
 print(results.traits)
 ```
 
-    ##                                               r     p      NMDS1         NMDS2
-    ## response_plant_height4             0.0057047585 0.944 -0.2933777 -0.9559966003
-    ## response_chlorophyll_content4_mean 0.0110074680 0.906  0.2597082  0.9656871508
-    ## response_leaf_number2              0.0266358575 0.763 -0.2934237 -0.9559824975
-    ## response_wet_shoot_weight          0.0171222135 0.855 -0.9891642 -0.1468136954
-    ## response_dry_shoot_weight          0.0005665145 0.995 -0.7551156 -0.6555916110
-    ## response_wet_root_weight           0.0642071782 0.528  0.3695530  0.9292096478
-    ## response_dry_root_weight           0.0734630382 0.500  0.1694548  0.9855379572
-    ## response_dry_total_weight          0.0079539174 0.931  0.1194045  0.9928456887
-    ## response_shoot_root_ratio          0.0688519468 0.500 -0.1526812 -0.9882754892
-    ## response_shoot_moisture            0.0163073384 0.842 -1.0000000 -0.0001506837
+    ##                                              r     p       NMDS1      NMDS2
+    ## response_plant_height4             0.008426037 0.933 -0.29899454 -0.9542548
+    ## response_chlorophyll_content4_mean 0.010753568 0.910  0.13427111  0.9909446
+    ## response_leaf_number2              0.035940146 0.710 -0.28441310 -0.9587018
+    ## response_wet_shoot_weight          0.020377741 0.840 -0.93865487 -0.3448580
+    ## response_dry_shoot_weight          0.002108302 0.981 -0.46069056 -0.8875608
+    ## response_wet_root_weight           0.058941743 0.577  0.36440406  0.9312409
+    ## response_dry_root_weight           0.069358931 0.526  0.15187647  0.9883995
+    ## response_dry_total_weight          0.004877223 0.961  0.06624403  0.9978035
+    ## response_shoot_root_ratio          0.072352955 0.507 -0.14619591 -0.9892557
+    ## response_shoot_moisture            0.016098733 0.864 -0.98917639  0.1467313
 
 ``` r
 ## summarize factor results
@@ -1668,7 +1720,7 @@ print(results.treats)
 ```
 
     ##            Factor        R2     P
-    ## treat.rn treat.rn 0.6328404 0.001
+    ## treat.rn treat.rn 0.6243996 0.001
 
 ``` r
 # 1. Extract NMDS site scores (sample coordinates)
@@ -1766,7 +1818,10 @@ ggplot(data = nmds_scores, aes(x = NMDS1, y = NMDS2)) +
 ggsave("./16S_outputs/NMDS_trait_vec.png",
        width = 7, height = 6, units = "in",
        dpi = 400)
+include_graphics("./16S_outputs/NMDS_trait_vec.png")
 ```
+
+![](./16S_outputs/NMDS_trait_vec.png)<!-- -->
 
 ### Capscale analysis
 
@@ -1799,7 +1854,7 @@ cap_result <- capscale(dist_bc ~
 (total_constrained <- cap_result$CCA$tot.chi)
 ```
 
-    ## [1] 12.50106
+    ## [1] 12.5188
 
 ``` r
 # Run ANOVA by term
@@ -1825,9 +1880,9 @@ print(explained_df)
 ```
 
     ##        Term  SumOfSqs Proportion
-    ## 1  treat.rn  8.836346  0.3141101
-    ## 2 timepoint  3.664716  0.1302715
-    ## 3  Residual 15.630304  0.5556184
+    ## 1  treat.rn  8.852498  0.3149922
+    ## 2 timepoint  3.666306  0.1304556
+    ## 3  Residual 15.585058  0.5545522
 
 ``` r
 ## capscale analysis for each timepoint separately
@@ -1846,14 +1901,14 @@ CS.out <- sapply(times.list,
 
     ## [1] "TP1"
     ##       Term  SumOfSqs Proportion
-    ## 1 treat.rn 3.0143969 0.29801991
-    ## 2  Species 0.7508638 0.07423454
-    ## 3 Residual 6.3494895 0.62774556
+    ## 1 treat.rn 3.0192759 0.29926303
+    ## 2  Species 0.7383355 0.07318195
+    ## 3 Residual 6.3314258 0.62755501
     ## [1] "TP2"
     ##       Term  SumOfSqs Proportion
-    ## 1 treat.rn 1.8834236  0.2227790
-    ## 2  Species 0.9038921  0.1069160
-    ## 3 Residual 5.6669079  0.6703049
+    ## 1 treat.rn 1.8735738  0.2223754
+    ## 2  Species 0.9043961  0.1073432
+    ## 3 Residual 5.6473059  0.6702814
 
 ``` r
 CS_all <- lapply(CS.out, `[[`, 1) %>%
@@ -1891,9 +1946,9 @@ anova(dispersion)
     ## Analysis of Variance Table
     ## 
     ## Response: Distances
-    ##            Df  Sum Sq  Mean Sq F value    Pr(>F)    
-    ## Groups      2 0.34769 0.173847  38.984 4.329e-14 ***
-    ## Residuals 135 0.60203 0.004459                      
+    ##            Df  Sum Sq  Mean Sq F value   Pr(>F)    
+    ## Groups      2 0.35216 0.176079  40.162 2.06e-14 ***
+    ## Residuals 135 0.59187 0.004384                     
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
@@ -1920,8 +1975,8 @@ permutest(dispersion, permutations = 999)
     ## 
     ## Response: Distances
     ##            Df  Sum Sq  Mean Sq      F N.Perm Pr(>F)    
-    ## Groups      2 0.34769 0.173847 38.984    999  0.001 ***
-    ## Residuals 135 0.60203 0.004459                         
+    ## Groups      2 0.35216 0.176079 40.162    999  0.001 ***
+    ## Residuals 135 0.59187 0.004384                         
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
@@ -1954,8 +2009,8 @@ anova(dispersion)
     ## 
     ## Response: Distances
     ##            Df  Sum Sq  Mean Sq F value   Pr(>F)   
-    ## Groups      1 0.03260 0.032601  9.8423 0.002131 **
-    ## Residuals 124 0.41073 0.003312                    
+    ## Groups      1 0.03306 0.033061   10.22 0.001763 **
+    ## Residuals 124 0.40114 0.003235                    
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
@@ -1981,9 +2036,9 @@ permutest(dispersion, permutations = 999)
     ## Number of permutations: 999
     ## 
     ## Response: Distances
-    ##            Df  Sum Sq  Mean Sq      F N.Perm Pr(>F)   
-    ## Groups      1 0.03260 0.032601 9.8423    999  0.004 **
-    ## Residuals 124 0.41073 0.003312                        
+    ##            Df  Sum Sq  Mean Sq     F N.Perm Pr(>F)    
+    ## Groups      1 0.03306 0.033061 10.22    999  0.001 ***
+    ## Residuals 124 0.40114 0.003235                        
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
@@ -2007,8 +2062,8 @@ perm.out <- sapply(times.list,
     ## 
     ## Response: Distances
     ##           Df  Sum Sq   Mean Sq F value Pr(>F)
-    ## Groups     6 0.06818 0.0113630  1.6488  0.151
-    ## Residuals 56 0.38594 0.0068918
+    ## Groups     6 0.07049 0.0117475  1.7618 0.1238
+    ## Residuals 56 0.37341 0.0066679
 
 ![](16S_analyses_files/figure-gfm/permanova-5.png)<!-- -->![](16S_analyses_files/figure-gfm/permanova-6.png)<!-- -->
 
@@ -2016,9 +2071,9 @@ perm.out <- sapply(times.list,
     ## Analysis of Variance Table
     ## 
     ## Response: Distances
-    ##           Df   Sum Sq   Mean Sq F value Pr(>F)  
-    ## Groups     6 0.027837 0.0046394  2.4684 0.0345 *
-    ## Residuals 56 0.105254 0.0018795                 
+    ##           Df   Sum Sq   Mean Sq F value  Pr(>F)  
+    ## Groups     6 0.027249 0.0045415   2.484 0.03353 *
+    ## Residuals 56 0.102386 0.0018283                  
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
@@ -2344,7 +2399,12 @@ ggplot(res_sig, aes(x = crop,
 ## save
 ggsave("./16S_outputs/heatmap_ASVfamily.png",
        width = 6, height = 12, units = "in")
+include_graphics("./16S_outputs/heatmap_ASVfamily.png")
+```
 
+![](./16S_outputs/heatmap_ASVfamily.png)<!-- -->
+
+``` r
 # Calculate mean log2FoldChange per Phylum
 phylum_order <- res_sig %>%
   group_by(Phylum) %>%
@@ -2372,13 +2432,16 @@ ggplot(res_sig, aes(x = crop,
         strip.text.x = element_text(angle = 90))
 ```
 
-![](16S_analyses_files/figure-gfm/DEseq2-7.png)<!-- -->
+![](16S_analyses_files/figure-gfm/DEseq2-8.png)<!-- -->
 
 ``` r
 ## save
 ggsave("./16S_outputs/heatmap_ASVphylum.png",
        width = 6, height = 10, units = "in")
+include_graphics("./16S_outputs/heatmap_ASVphylum.png")
 ```
+
+![](./16S_outputs/heatmap_ASVphylum.png)<!-- -->
 
 ## Extra code
 
