@@ -15,7 +15,7 @@ setwd("../Agri_Contaminants")
 
 ## packages
 library(tidyverse) ## ggplot, stringr, and more
-library(knitr) ## kabel function
+library(knitr)
 library(lme4) ## lmer function
 library(car) ## Anova for type 3 (interactions)
 library(emmeans) ## post-hoc analyses
@@ -978,20 +978,19 @@ direct.l <- direct.l %>%
 ## load emmeans
 load(file = "./model_outputs/indirect/emm1.Rda") ## loads emm
 
-### emms add in per plant traits
-emm1 <- emm %>%
-  filter(trait == "dry_shoot_weight") %>%
-  droplevels(.)
-emm1$trait <- "per_plant_shoot_weight"
-emm2 <- emm %>%
-  filter(trait == "dry_root_weight") %>%
-  droplevels(.)
-emm2$trait <- "per_plant_root_weight"
-emm3 <- emm %>%
-  filter(trait == "dry_total_weight") %>%
-  droplevels(.)
-emm3$trait <- "per_plant_total_weight"
-emm.c <- rbind(emm, emm1, emm2, emm3)
+### emms add in per plant traits (just duplicating)
+emm$per_plant_shoot_weight <- emm$dry_shoot_weight
+emm$per_plant_shoot_weight <- emm$dry_root_weight
+emm$per_plant_shoot_weight <- emm$dry_total_weight
+
+emm.c <- emm %>%
+  filter(trait %in% c("dry_shoot_weight",
+                      "per_plant_shoot_weight",
+                      "dry_root_weight",
+                      "per_plant_root_weight",
+                      "dry_total_weight",
+                      "per_plant_total_weight")) %>%
+droplevels(.)
 
 ### normalize to controls
 emm.controls <- emm.c %>%
@@ -1078,7 +1077,8 @@ comb_sum.w <- comb_sum %>%
 kable(comb_sum.w)
 
 ggplot(comb_sum, aes(direction)) +
-  geom_bar(aes(weight = prop, fill = contam)) +
+  geom_bar(aes(weight = prop, fill = contam),
+           position = position_dodge2(0.2)) +
   facet_wrap(~trait, ncol = 5) +
   coord_flip() +
   labs(y = "Proportion",

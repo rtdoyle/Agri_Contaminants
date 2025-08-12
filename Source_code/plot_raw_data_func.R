@@ -63,7 +63,7 @@ plot_raw_data_func <- function(traits, df){
       axis.title.y = element_text(size = 16),
       strip.text = element_blank(),
       panel.grid.major = element_blank(),
-      panel.grid.minor = element_blank(),
+      panel.grid.minor = element_blank()
     )
     
   ### return

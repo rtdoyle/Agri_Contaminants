@@ -10,6 +10,16 @@ lin_reg.func <- function(traits, df){
   
   ## run model
   lm <- lm(resp_norm ~ raw_norm * contam, data = df.f)
+  ### res vs fit plot
+  png(paste0("./model_outputs/indirect/lin_reg.resfits_", 
+             combs, ".png"), 
+      width=6, height=6, units='in', res=300)
+  layout(matrix(1:4, ncol = 2))
+  plot(lmm)
+  layout(1)
+  dev.off()
+  
+  ## model coefficients
   lm_sum <- summary(lm)
   lm_coeff <- as.data.frame(lm_sum$coefficients)
   lm_coeff$trait <- paste0(traits)

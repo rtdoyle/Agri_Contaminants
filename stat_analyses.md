@@ -1,7 +1,7 @@
 stat_analyses
 ================
 RTD, II
-2025-08-04
+2025-08-05
 
 ## Direct impacts of contaminants on crop growth
 
@@ -3266,7 +3266,8 @@ contaminants positive\| microbes positive, contaminants negative\|
 
 ``` r
 ggplot(comb_sum, aes(direction)) +
-  geom_bar(aes(weight = prop, fill = contam)) +
+  geom_bar(aes(weight = prop, fill = contam),
+           position = position_dodge2(0.2)) +
   facet_wrap(~trait, ncol = 5) +
   coord_flip() +
   labs(y = "Proportion",
