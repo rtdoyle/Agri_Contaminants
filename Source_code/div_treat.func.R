@@ -24,9 +24,8 @@ div_treat.func <- function(metrics, df){
   ## change order of species_tp
   richness_sum$species_tp <- factor(richness_sum$species_tp,
                                     levels = c(
-                                      "L_TP1","L_TP2",
-                                      "P_TP1","P_TP2",
-                                      "R_TP1","R_TP2"
+                                      "L_TP1", "P_TP1", "R_TP1",
+                                      "L_TP2", "P_TP2", "R_TP2"
                                      ))
   
   p <- richness_sum %>%
@@ -50,14 +49,14 @@ div_treat.func <- function(metrics, df){
                        labels = c("Lettuce", "Pea", "Radish")) + 
     ggtitle(NULL) + 
     labs(x = NULL, y = NULL) +
-    facet_wrap(~species_tp, scales = "fixed",
-               labeller = labeller("species_tp" = labs),
-               ncol = 2) +  
+    facet_wrap(~species_tp, ncol = 6,
+               scales = "fixed",
+               labeller = labeller("species_tp" = labs)) +  
     #coord_flip() +
     theme_bw() + 
     theme(
       strip.text = element_text(size = 16, face = "bold"),
-      axis.text.x = element_text(size = 10, angle = 90, hjust = 0.5),
+      axis.text.x = element_blank(),
       axis.text.y = element_text(size = 14),
       axis.title.x = element_text(size = 16),
       axis.title.y = element_text(size = 16),

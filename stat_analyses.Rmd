@@ -1,5 +1,5 @@
 ---
-title: "stat_analyses"
+title: "Phenotypic responses"
 author: "RTD, II"
 date: "`r Sys.Date()`"
 output: github_document
@@ -15,7 +15,7 @@ setwd("../Agri_Contaminants")
 
 ## packages
 library(tidyverse) ## ggplot, stringr, and more
-library(knitr)
+library(knitr) ## include_graphics function
 library(lme4) ## lmer function
 library(car) ## Anova for type 3 (interactions)
 library(emmeans) ## post-hoc analyses
@@ -144,6 +144,12 @@ direct$contam_spike <- factor(direct$contam_spike,
                                            "BS-2"
                                            ),
                               ordered = TRUE)
+
+### species
+direct$species <- factor(direct$species, 
+                                levels = c("lettuce",
+                                           "radish",
+                                           "pea"))
 
 ## save formatted data file
 save(direct, file = "./direct-formatted.Rda")
@@ -317,6 +323,13 @@ write.csv(aov, "./model_outputs/direct/aov2.csv",
 ### emmeans
 emm <- lapply(mod2.out, `[[`, 2) %>%
   bind_rows(.)
+emm$emmean.bt <- exp(emm$emmean)
+emm$LCL.bt <- ifelse(is.na(emm$lower.CL) == TRUE,
+                         exp(emm$asymp.LCL),
+                         exp(emm$lower.CL))
+emm$UCL.bt <- ifelse(is.na(emm$upper.CL) == TRUE,
+                         exp(emm$asymp.UCL),
+                         exp(emm$upper.CL))
 write.csv(emm, "./model_outputs/direct/emm2.csv", 
           row.names = FALSE)
 ### CONTRASTS
@@ -348,7 +361,7 @@ write.csv(cont, "./model_outputs/direct/cont2.csv",
           row.names = FALSE)
 ```
 
-#### Models 3 & 4: infection rate
+#### Models 3 & 4: infection rate and survival
 
 * M3: Is infection rate impacted by contaminant level?
 * M4: Is survival rate impacted by infection rate?
@@ -390,7 +403,7 @@ write.csv(m4_coeff, "./model_outputs/direct/m4_coeff.csv",
           row.names = TRUE)
 ```
 
-### Figures
+### Figures (Main text Figure 1)
 
 Raw data, emmeans, contrasts 
 
@@ -431,7 +444,7 @@ plots.out1 <- sapply(trait.list1,
                    simplify = FALSE, 
                    USE.NAMES = TRUE)
 
-## combine plots (all crops)
+##### Raw data (all crops) #####
 fig1 <- plot_grid(plots.out1[["dry_total_weight"]] +
                     labs(y = "Total dry weight (g)"),
                   plots.out1[["shoot_root_ratio"]] +
@@ -445,23 +458,173 @@ fig1 <- plot_grid(plots.out1[["dry_total_weight"]] +
           align = "v",
           labels = NULL)
 fig1
+ggsave("./model_outputs/direct/raw_all_crops.png",
+       width=6, height=8, units = "in")
+include_graphics("./model_outputs/direct/raw_all_crops.png")
 
-## combine plots (peas only)
+##### Raw data (peas only) #####
 fig2 <- plot_grid(plots.out1[["dry_pod_weight"]] +
                     labs(y = "Dry pod weight (g)"),
                   plots.out1[["pods"]] +
                     labs(y = "Pods (no.)"),
                    plots.out1[["flowers"]] +
                     labs(y = "Flowers (no.)"),
-                  plots.out1[["infected_peas_perc"]] +
-                    labs(y = "Peas Infected (%)"),
-          ncol = 2,
-          nrow = 2,
-          align = "hv",
+                  #plots.out1[["infected_peas_perc"]] +
+                    #labs(y = "Peas Infected (%)"),
+          ncol = 1,
+          nrow = 3,
+          align = "v",
           labels = NULL)
 fig2
+ggsave("./model_outputs/direct/raw_peas.png",
+       width=6, height=6, units = "in")
+include_graphics("./model_outputs/direct/raw_peas.png")
 
-### M1
+## just the legend
+legend <- get_legend(
+  plots.out1[["dry_pod_weight"]] +
+    theme(legend.position = "bottom"))
+legend_fig <- plot_grid(legend)
+ggsave("./model_outputs/direct/legend.png",
+       width=1, height=3, units = "in")
+
+##### Infection by contaminant level (peas only) #####
+
+## model 3: infection and contaminant level
+direct.f <- direct %>%
+         filter(species == "pea" & contam == "BS") %>%
+  droplevels(.)
+
+### means
+df.means <- direct.f %>% 
+  group_by(spikeFac) %>%
+  summarize(mean = mean(infected_peas_perc, 
+                        na.rm = TRUE))
+
+## plot
+M3_plot <- ggplot(df.means,
+                  aes(x = spikeFac, y = mean)) +
+    geom_bar(aes(fill = spikeFac),
+             stat = "identity") +
+    geom_beeswarm(data = direct.f,
+                  aes(y = infected_peas_perc)) +
+    scale_fill_manual(values = c("#EABD8C",
+                                 "#FFAD00",
+                                 "#B06500")) +
+    labs(x = "Spiking level", 
+         y = "Pea Infection (%)") +
+    guides(fill = "none") +
+    theme_bw() +
+    theme(
+      axis.text.x = element_text(size = 12),
+      axis.title.x = element_text(size = 14),
+      axis.text.y = element_text(size = 12),
+      axis.title.y = element_text(size = 14),
+      strip.text = element_text(size = 14, face = "bold"),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+    )
+M3_plot
+
+ggsave("./model_outputs/direct/M3_plot.png", 
+       width = 6, height = 6, 
+       units = "in")
+
+## model 4: infection and survival
+##### Infection vs Survival (peas only) #####
+M4_plot <- ggplot(direct %>%
+         filter(species == "pea" & contam == "BS"),
+       aes(x = infected_peas_perc, y = survival_perc)) +
+  geom_smooth(method = "lm", colour = "black") +
+  geom_point(aes(colour = spikeFac), size = 3) +
+  scale_colour_manual(values = c("#EABD8C",
+                                 "#FFAD00",
+                                 "#B06500")) +
+  labs(y = "Pea Survival (%)", 
+         x = "Pea Infection (%)") +
+    guides(colour = "none") +
+    theme_bw() +
+    theme(
+      axis.text.x = element_text(size = 12),
+      axis.title.x = element_text(size = 14),
+      axis.text.y = element_text(size = 12),
+      axis.title.y = element_text(size = 14),
+      strip.text = element_text(size = 14, face = "bold"),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+    )
+M4_plot
+
+ggsave("./model_outputs/direct/M4_plot.png", 
+       width = 6, height = 6, 
+       units = "in")
+
+## plot grid for just the pea traits
+fig_infect <- plot_grid(
+  M3_plot,
+  M4_plot,
+  legend,
+  ncol = 1,
+  nrow = 3,
+  rel_heights = c(1,1,0.4),
+  align = "v",
+  labels = NULL)
+fig_infect
+
+fig_infect.m <- ggdraw() +
+  draw_plot(fig_infect, y = 0.1, height = 0.8)  
+# Adds 10% margin on top and bottom
+
+
+## put pea traits together, plus legend at bottom
+fig_peas <- 
+  plot_grid(fig2, fig_infect.m, 
+            ncol = 2, 
+            rel_heights = c(0.6, 0.4),
+            align = "h", labels = NULL)
+fig_peas
+
+## plot grid for all traits
+fig_all <- plot_grid(fig1, fig_peas, ncol = 2,
+          rel_widths = c(0.5, 0.5),
+          align = "hv",
+          axis = "tblr",
+          labels = NULL)
+fig_all
+
+
+## add titles for each column
+
+# Create a row of subtitles
+
+# Create a row of four subtitles
+subtitle_row <- ggdraw() +
+  draw_label("Lettuce", x = 0.11, y = 0.5, 
+             hjust = 0.5, size = 12, fontface = "bold") +
+  draw_label("Radish", x = 0.26, y = 0.5, 
+             hjust = 0.5, size = 12, fontface = "bold") +
+  draw_label("Pea", x = 0.42, y = 0.5, 
+             hjust = 0.5, size = 12, fontface = "bold") +
+  draw_label("Pea", x = 0.76, y = 0.5, 
+             hjust = 0.5, size = 12, fontface = "bold")
+
+
+# Combine subtitle row and main panel
+final_plot <- plot_grid(
+  subtitle_row,
+  fig_all,
+  ncol = 1,
+  rel_heights = c(0.02, 1)
+)
+final_plot
+
+ggsave("./model_outputs/direct/raw_data.png", 
+       width = 12, height = 10, 
+       units = "in")
+
+
+
+##### Fig. 2: post-hoc tests #####
 ## figures (contrasts)
 cont <- read_csv("model_outputs/direct/cont1.csv")
 
@@ -474,6 +637,10 @@ cont$contam <- factor(cont$contam,
 
 cont$species <- ifelse(is.na(cont$species) == TRUE,
                        "pea",cont$species)
+cont$species <- factor(cont$species,
+                       levels = c("lettuce",
+                                  "radish",
+                                  "pea"))
 
 ### sig traits
 sig.traits <- c("survival_perc.corr",
@@ -510,37 +677,36 @@ species_names <- c(
   radish = 'Radish'
 )
 
-### plot
+##### Contrasts (amendment type) #####
 M1_plot <- ggplot(data = cont.f,
    aes(x = contam, 
-       y = ratio, 
+       y = log2(ratio), 
        colour = contam)) +
-  geom_pointrange(aes(ymin = lower.CL,
-                      ymax = upper.CL),
+  geom_pointrange(aes(ymin = log2(lower.CL),
+                      ymax = log2(upper.CL)),
                   position = position_dodge(0.5)) +
-  geom_hline(aes(yintercept = 1),
+  geom_hline(aes(yintercept = 0),
              linetype = 2) +
   coord_flip() +
    scale_colour_manual(values = c(
                                   "blue",
                                  "#B06500")) +
-  facet_grid(trait~species, scales = "free",
+  facet_grid(trait~species, scales = "fixed",
              labeller = labeller(trait = trait_names,
                                  species = species_names)) +
-  labs(y = NULL, x = NULL) +
+  labs(x = NULL, y = expression(log[2]~"Fold Change (95% CL)")) +
   guides(colour = "none") +
   theme_bw() +
   theme(
     axis.text = element_text(size = 12),
-    strip.text = element_text(size = 14, face = "bold"),
+    axis.title.x = element_text(size = 14),
+    strip.text.y = element_blank(),
+    strip.text.x = element_text(size = 14, face = "bold"),
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
   )
 M1_plot
 
-ggsave("./model_outputs/direct/M1_plot.png", 
-       width = 8, height = 10, 
-       units = "in")
 
 ## M2
 
@@ -553,6 +719,10 @@ emms$amend <- factor(emms$amend,
 
 emms$species <- ifelse(is.na(emms$species) == TRUE,
                        "pea", emms$species)
+emms$species <- factor(emms$species,
+                       levels = c("lettuce",
+                                  "radish",
+                                  "pea"))
 
 ### sig traits
 sig.traits <- c("survival_perc.corr",
@@ -566,12 +736,12 @@ emms.f <- emms %>%
 
 ### rename traits
 trait_names <- c(
-  per_plant_weight = 'Per plant weight (g)',
+  per_plant_weight = 'Per plant weight \n (g)',
   dry_shoot_weight = 'Dry shoot \n weight (g)',
   dry_total_weight = 'Dry total \n weight (g)',
   dry_root_weight = 'Dry root \n weight (g)',
-  shoot_root_ratio = 'Shoot to root \n ratio',
-  shoot_moisture = 'Shoot moisture \n (%)',
+  shoot_root_ratio = 'Shoot to \n root ratio',
+  shoot_moisture = 'Shoot \n moisture \n (%)',
   germination_perc = 'Germination \n (%)',
   survival_perc.corr = 'Survival \n (%)',
   pods = "Pods (no.)"
@@ -584,9 +754,9 @@ species_names <- c(
   radish = 'Radish'
 )
 
-### plot
+##### Contrasts (contamination level) #####
 M2_plot <- ggplot(data = emms.f,
-   aes(x = spikeFac, 
+   aes(x = factor(spikeFac), 
        y = emmean, 
        colour = amend)) +
   geom_line(aes(group = amend),
@@ -604,92 +774,33 @@ M2_plot <- ggplot(data = emms.f,
    scale_colour_manual(values = c(
                                   "blue",
                                  "#B06500")) +
-  facet_grid(trait~species, scales = "free",
+  facet_grid(trait~species, scales = "fixed",
              labeller = labeller(trait = trait_names,
                                  species = species_names)) +
-  labs(y = NULL, x = NULL) +
+  labs(y = expression("EM mean (95% CL)"), 
+       x = "Contaminant spiking level") +
   guides(colour = "none") +
   theme_bw() +
   theme(
     axis.text = element_text(size = 12),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
     strip.text = element_text(size = 14, face = "bold"),
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
   )
 M2_plot
 
-ggsave("./model_outputs/direct/M2_plot.png", 
-       width = 8, height = 10, 
+plots <- plot_grid(M1_plot, M2_plot,
+                   ncol = 2,
+                   align = "h",
+                   labels = NULL)
+plots
+
+ggsave("./model_outputs/direct/model_plots.png", 
+       width = 10, height = 6, 
        units = "in")
 
-## model 3: infection and contaminant level
-### plots
-direct.f <- direct %>%
-         filter(species == "pea" & contam == "BS") %>%
-  droplevels(.)
-
-### means
-df.means <- direct.f %>% 
-  group_by(spikeFac) %>%
-  summarize(mean = mean(infected_peas_perc, 
-                        na.rm = TRUE))
-### plot
-M3_plot <- ggplot(df.means,
-                  aes(x = spikeFac, y = mean)) +
-    geom_bar(aes(fill = spikeFac),
-             stat = "identity") +
-    geom_beeswarm(data = direct.f,
-                  aes(y = infected_peas_perc)) +
-    scale_fill_manual(values = c("#EABD8C",
-                                 "#FFAD00",
-                                 "#B06500")) +
-    labs(x = "Contaminant level", 
-         y = "Pea Infection (%)") +
-    guides(colour = "none") +
-    theme_bw() +
-    theme(
-      axis.text.x = element_text(size = 12),
-      axis.title.x = element_text(size = 16),
-      axis.text.y = element_text(size = 12),
-      axis.title.y = element_text(size = 16),
-      strip.text = element_text(size = 14, face = "bold"),
-      panel.grid.major = element_blank(),
-      panel.grid.minor = element_blank(),
-    )
-M3_plot
-
-ggsave("./model_outputs/direct/M3_plot.png", 
-       width = 6, height = 6, 
-       units = "in")
-
-## model 4: infection and survival
-### plots
-M4_plot <- ggplot(direct %>%
-         filter(species == "pea" & contam == "BS"),
-       aes(x = infected_peas_perc, y = survival_perc)) +
-  geom_smooth(method = "lm", colour = "black") +
-  geom_point(aes(colour = spikeFac), size = 3) +
-  scale_colour_manual(values = c("#EABD8C",
-                                 "#FFAD00",
-                                 "#B06500")) +
-  labs(y = "Pea Survival (%)", 
-         x = "Pea Infection (%)") +
-    guides(colour = "none") +
-    theme_bw() +
-    theme(
-      axis.text.x = element_text(size = 12),
-      axis.title.x = element_text(size = 16),
-      axis.text.y = element_text(size = 12),
-      axis.title.y = element_text(size = 16),
-      strip.text = element_text(size = 14, face = "bold"),
-      panel.grid.major = element_blank(),
-      panel.grid.minor = element_blank(),
-    )
-M4_plot
-
-ggsave("./model_outputs/direct/M4_plot.png", 
-       width = 6, height = 6, 
-       units = "in")
 ```
 
 ## Microbially-mediated (i.e., indirect) impacts of contaminants
@@ -1088,7 +1199,7 @@ ggplot(comb_sum, aes(direction)) +
   
 ```
 
-### Figures
+### Figures (main text Fig. 4)
 
 ```{r indirect_figs}
 ## loaf formatted data file
@@ -1118,4 +1229,22 @@ plots.out2 <- sapply(trait.list,
                      droplevels(.),
                    simplify = FALSE, 
                    USE.NAMES = TRUE)
+
+##### Raw data (peas-only) #####
+fig1 <- plot_grid(plots.out2[["dry_total_weight"]] +
+                    labs(y = "Total dry weight (g)"),
+                  plots.out2[["shoot_root_ratio"]] +
+                    labs(y = "Shoot to root ratio"),
+                  plots.out2[["shoot_moisture"]] +
+                    labs(y = "Shoot moisture (%)"),
+                  plots.out2[["plant_height4"]] +
+                    labs(y = "Plant height (cm)"),
+          ncol = 1,
+          nrow = 4,
+          align = "v",
+          labels = NULL)
+fig1
+ggsave("./model_outputs/indirect/raw_peas.png",
+       width=6, height=8, units = "in")
+include_graphics("./model_outputs/indirect/raw_peas.png")
 ```

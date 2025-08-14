@@ -42,26 +42,29 @@ plot_raw_data_func <- function(traits, df){
     geom_hline(data = controls,
                aes(yintercept = mean),
                linetype = 2) +
-    scale_fill_manual(values = c("gray",
+    scale_fill_manual(name = "Amendment- \n Spiking Level",
+      values = c("gray",
                                  "lightblue",
                                  "cornflowerblue",
                                  "blue",
                                  "#EABD8C",
                                  "#FFAD00",
-                                 "#B06500")) +
+                                 "#B06500"),
+      guide = guide_legend(nrow = 4, ncol = 2)) +
     facet_wrap(~species, scales = "free_y",
                ncol = 3,
                labeller = 
                  labeller(species = species_names)) +
     labs(y = paste0(traits), 
          x = "Amendment type + Contaminant level") +
-    guides(fill = "none") +
     theme_bw() +
     theme(
       axis.text.x = element_blank(),
       axis.title.x = element_blank(),
-      axis.title.y = element_text(size = 16),
+      axis.ticks.x = element_blank(),  # removes tick marks
+      axis.title.y = element_text(size = 14),
       strip.text = element_blank(),
+      legend.position = "none",
       panel.grid.major = element_blank(),
       panel.grid.minor = element_blank()
     )

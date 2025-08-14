@@ -506,9 +506,7 @@ Run on rarified data in which host DNA is removed
 
 Rarefaction is generally recommended for alpha diversity metrics 
 (e.g., Shannon, Simpson, Observed OTUs) because these are sensitive to 
-sampling depth.
-It ensures that differences in diversity are due to biological variation, 
-not sequencing effort.
+sampling depth. It ensures that differences in diversity are due to biological variation, not sequencing effort.
 
 Shannon
 What it measures:
@@ -526,7 +524,8 @@ What it measures:
   * Less sensitive to rare taxa; emphasizes common taxa.
 Interpretation:
   * Higher values = more even communities.
-  * A community dominated by one or few taxa will have a low inverse Simpson value.
+  * A community dominated by one or few taxa will have a low inverse Simpson 
+  value.
   * Typical range: Starts at 1 (minimum diversity); higher values indicate more 
   diversity.
 
@@ -544,14 +543,21 @@ richness.df <- cbind(sample_data(rare_ps), richness.df)
 ## does diversity depend on species, amendment, timepoint?
 ### should just treat as a trait in indirect exp set up
 
-richness.df$treat.rn <- relevel(richness.df$treat.rn, ref = "control-0")
-richness.df$tp_treat <- paste0(richness.df$timepoint, richness.df$treat.rn)
-richness.df$tp_treat <- as.factor(richness.df$tp_treat)
-richness.df$tp_treat <- relevel(richness.df$tp_treat, ref = "TP1control-0")
-richness.df$species_treat <- paste0(richness.df$species, "-",
-                                    richness.df$treat.rn)
-richness.df$species_treat <- as.factor(richness.df$species_treat)
-richness.df$species_treat <- relevel(richness.df$species_treat, 
+richness.df$treat.rn <- 
+  relevel(richness.df$treat.rn, ref = "control-0")
+richness.df$tp_treat <- 
+  paste0(richness.df$timepoint, richness.df$treat.rn)
+richness.df$tp_treat <- 
+  as.factor(richness.df$tp_treat)
+richness.df$tp_treat <- 
+  relevel(richness.df$tp_treat, ref = "TP1control-0")
+richness.df$species_treat <- 
+  paste0(richness.df$species, "-",
+         richness.df$treat.rn)
+richness.df$species_treat <- 
+  as.factor(richness.df$species_treat)
+richness.df$species_treat <- 
+  relevel(richness.df$species_treat, 
                                      ref = "no_plant-Garden Soil")
 
 ## set contrasts
@@ -559,10 +565,13 @@ options(contrasts=c("contr.treatment","contr.poly"))
 
 ## 1) test single timepoint first to compare source materials
 
+## correction to InvSimp (x100)
+richness.df$InvSimpson.c <- richness.df$InvSimpson /100
+
 ### function
 source("./Source_code/div_tp1.func.R")
 
-metric.list <- c("Shannon","InvSimpson")
+metric.list <- c("Shannon","InvSimpson.c")
 
 div.out <- sapply(metric.list, 
                 div_tp1.func, 
@@ -571,6 +580,19 @@ div.out <- sapply(metric.list,
                   droplevels(.),
                       USE.NAMES = TRUE, 
                       simplify = FALSE)
+
+### Combine plots
+TP1_plots <- plot_grid(div.out[["Shannon"]][[1]] +
+                         labs(y = "Shannon"),
+                       div.out[["InvSimpson.c"]][[1]] +
+                         labs(y = "Inv. Simpson (x100"),
+                       ncol = 1)
+### save plots
+TP1_plots
+ggsave("./16S_outputs/TP1_div_plots.png",
+       width=6, height=8, units = "in")
+include_graphics("./16S_outputs/TP1_div_plots.png")
+
 ### combine dfs and save
 aov <- lapply(div.out, `[[`, 2) %>%
   bind_rows(.)
@@ -584,24 +606,12 @@ cont <- lapply(div.out, `[[`, 4) %>%
   bind_rows(.)
 write.csv(cont, "./16S_outputs/div_tp1_cont.csv",
           row.names = FALSE)
-### Combine plots
-TP1_plots <- plot_grid(div.out[["Shannon"]][[1]] +
-                         labs(y = "Shannon"),
-                       div.out[["InvSimpson"]][[1]] +
-                         labs(y = "Inv. Simpson"),
-                       ncol = 1)
-### save plots
-TP1_plots
-ggsave("./16S_outputs/TP1_div_plots.png",
-       width=6, height=8, units = "in")
-include_graphics("./16S_outputs/TP1_div_plots.png")
 
 ## 2)  species x timepoint x amendment? (exclude sources from TP1)
 
 ### function
+metric.list <- c("Shannon","InvSimpson.c")
 source("./Source_code/div_treat.func.R")
-
-metric.list <- c("Shannon","InvSimpson")
 
 div.out <- sapply(metric.list, 
                 div_treat.func, 
@@ -610,6 +620,19 @@ div.out <- sapply(metric.list,
                   droplevels(.),
                       USE.NAMES = TRUE, 
                       simplify = FALSE)
+
+### Combine plots
+treat_plots <- plot_grid(div.out[["Shannon"]][[1]] +
+                         labs(y = "Shannon"),
+                       div.out[["InvSimpson.c"]][[1]] +
+                         labs(y = "Inv. Simpson (x 100)"),
+                       ncol = 1,
+                       nrow = 2)
+### save plots
+treat_plots
+ggsave("./16S_outputs/treat_div_plots.png",
+       width=14, height=7, units = "in")
+include_graphics("./16S_outputs/treat_div_plots.png")
 
 aov <- lapply(div.out, `[[`, 2) %>%
   bind_rows(.)
@@ -623,42 +646,37 @@ cont <- lapply(div.out, `[[`, 4) %>%
   bind_rows(.)
 write.csv(cont, "./16S_outputs/div_treat_cont.csv",
           row.names = FALSE)
-### Combine plots
-treat_plots <- plot_grid(div.out[["Shannon"]][[1]] +
-                         labs(y = "Shannon"),
-                       div.out[["InvSimpson"]][[1]] +
-                         labs(y = "Inv. Simpson"),
-                       ncol = 2)
-### save plots
-treat_plots
-ggsave("./16S_outputs/treat_div_plots.png",
-       width=10, height=7, units = "in")
-include_graphics("./16S_outputs/treat_div_plots.png")
 
-## examine how diversity changes over time:
+### examine how diversity changes over time:
 richness.df.l <- richness.df %>%
       filter(!timepoint %in% c("other")) %>%
       droplevels(.) %>%
   pivot_longer(
-    cols = c("Shannon", "InvSimpson"),
+    cols = c("Shannon", "InvSimpson.c"),
     names_to = "Metric",
     values_to = "units"
   )
 
 richness.df.l$Metric <- factor(richness.df.l$Metric,
                                levels = c("Shannon",
-                                          "InvSimpson"))
+                                          "InvSimpson.c"))
 richness.df.l$timepoint <- factor(richness.df.l$timepoint,
                                   levels = c("other","TP1","TP2"))
 levels(richness.df.l$timepoint) <- c("other","Planting","Harvest")
 
-# Custom labels for the 'species_tp' facet
-  labs <- c(
+# Custom labels for the 'Species' facet
+  Species.labs <- c(
     no_plant = "No Plant",
     L = "Lettuce",
     P = "Pea",
     R = "Radish"
   )
+  
+  Metric.labs <- c(
+    Shannon = "Shannon",
+    InvSimpson.c = "Inv Simpson (x100)"
+  )
+  
 ## plot
 p <-
     ggplot(data = richness.df.l,
@@ -680,7 +698,8 @@ p <-
     ggtitle(NULL) + 
     labs(x = NULL, y = NULL) +
     facet_grid(Metric~Species, scales = "free_y",
-               labeller = labeller("Species" = labs)) +  
+               labeller = labeller("Species" = Species.labs,
+                                   "Metric" = Metric.labs)) +  
     theme_bw() + 
     theme(axis.title.x = element_text(size = 16),
           axis.text.x = element_text(size = 14),
@@ -808,7 +827,7 @@ trait.list <- rep(c(
 trait.list <- paste0("resp_norm_", trait.list)
 
 ## create list of traits/amends to loop through:
-metric.list <- c(rep(c("Shannon"),10), rep(c("InvSimpson"),10))
+metric.list <- c(rep(c("Shannon"),10), rep(c("InvSimpson.c"),10))
 comb.list <- paste0(trait.list, ", ", metric.list)
 
 ## source the function:
@@ -821,12 +840,6 @@ lm.out <- mapply(FUN = div_trait.func,
                       USE.NAMES = TRUE, 
                       SIMPLIFY = FALSE,
                       MoreArgs = list(df = richness.peaTP2))
-
-### coeffs
-lm_coeffs <- lapply(lm.out, `[[`, 2) %>%
-  bind_rows(.)
-write.csv(lm_coeffs, "./16S_outputs/models/lm_coeff.csv", 
-          row.names = TRUE)
 
 ### Combine plots
 plot_list <- lapply(lm.out, `[[`, 1) %>%
@@ -845,6 +858,11 @@ ggsave("./16S_outputs/Simpson_v_traits.png",
        width=6, height=12, units = "in")
 include_graphics("./16S_outputs/Simpson_v_traits.png")
 
+### coeffs
+lm_coeffs <- lapply(lm.out, `[[`, 2) %>%
+  bind_rows(.)
+write.csv(lm_coeffs, "./16S_outputs/models/lm_coeff.csv", 
+          row.names = TRUE)
 ```
 
 ## Beta diversity
@@ -904,9 +922,8 @@ p <- p1 +
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank())
 p
-
 ggsave("./16S_outputs/PCoA_plots_all-data.png",
-       width = 6, height = 6, units = "in",
+       width = 8, height = 6, units = "in",
        dpi = 400)
 include_graphics("./16S_outputs/PCoA_plots_all-data.png")
 

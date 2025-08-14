@@ -68,7 +68,6 @@ lmm2_func <- function(combs, traits, amends, df){
   aov$amend <- paste0(amends)
   
   ### compare treatments within species
-  lmm.bt <- update(ref_grid(lmm), tran = "log")
   
   ### specify for pea vs other species
   if (!traits %in% c("wet_pod_weight.corr",
@@ -76,7 +75,7 @@ lmm2_func <- function(combs, traits, amends, df){
                      "pods",
                      "flowers")){
     
-    lmm.emm <- emmeans(lmm.bt, poly ~ 
+    lmm.emm <- emmeans(lmm, poly ~ 
                          spikeFac | species,
                        infer = TRUE)
   }
@@ -86,7 +85,7 @@ lmm2_func <- function(combs, traits, amends, df){
                          "pods",
                          "flowers")){
     
-    lmm.emm <- emmeans(lmm.bt, poly ~ 
+    lmm.emm <- emmeans(lmm, poly ~ 
                          spikeFac,
                        infer = TRUE)
   }
