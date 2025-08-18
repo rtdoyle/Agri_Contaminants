@@ -15,7 +15,7 @@ indirect_m3.func <- function(combs, traits, amends, df){
     
 
   ### res vs fit plot
-  png(paste0("./model_outputs/direct/resfits3_", 
+  png(paste0("./indirect/model_outputs/resfits_plots/resfits3_", 
              combs, ".png"), 
       width=6, height=6, units='in', res=300)
   layout(matrix(1:4, ncol = 2))

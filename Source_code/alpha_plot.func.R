@@ -1,4 +1,4 @@
-alpha_plot.func <- function(combs, times, metrics, df){
+plot_alpha_div.alt.func <- function(combs, times, metrics, df){
   
   ## print time-measure comb
   print(combs)
@@ -9,6 +9,15 @@ alpha_plot.func <- function(combs, times, metrics, df){
   
   ## subset to specific timepoints
   df.f <- prune_samples(sample_data(df)$timepoint %in% time, df)
+  
+  df.f <- prune_samples(sample_data(df.f)$species != "no_plant", df.f)
+  
+  ### specify species names
+  species_names <- c(
+    L = 'Lettuce',
+    R = 'Radish',
+    P = 'Pea'
+  )
   
   ## plot
   
@@ -31,7 +40,7 @@ alpha_plot.func <- function(combs, times, metrics, df){
     ggtitle(NULL) + 
     labs(x = NULL, y = NULL) +
     facet_wrap(~Species, 
-               labeller = labeller("Species" = labs)) +  
+               labeller = labeller("Species" = species_names)) +  
     theme_bw() + 
     theme(axis.title.x = element_blank(),
           axis.text.x = element_blank(),

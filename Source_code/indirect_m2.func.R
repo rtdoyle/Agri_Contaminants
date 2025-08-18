@@ -12,7 +12,7 @@ indirect_m2.func <- function(traits, df){
   lmm <- lm(log(response) ~ contam, data = df.f)
   
   ### res vs fit plot
-  png(paste0("./model_outputs/indirect/resfits2_", 
+  png(paste0("./indirect/model_outputs/resfits_plots/resfits2_", 
              traits, ".png"), 
       width=6, height=6, units='in', res=300)
   layout(matrix(1:4, ncol = 2))

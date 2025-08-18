@@ -6,7 +6,8 @@ permanova.func <- function(times, df){
   
   ## exclude non-experiment samples
   metadata.f <- df %>%
-    filter(timepoint %in% time) %>%
+    filter(timepoint %in% time &
+             species != "no_plant") %>%
     droplevels(.)
   
   ## samples to include

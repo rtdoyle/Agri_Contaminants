@@ -7,14 +7,16 @@ capscale.func <- function(times, df){
   time <- as.character(times)
   
   ## subset to specific timepoints
-  df.f <- prune_samples(sample_data(df)$timepoint %in% time, df)
+  df.f1 <- prune_samples(sample_data(df)$species != "no_plant", df)
+  df.f <- prune_samples(sample_data(df.f1)$timepoint %in% time, df.f1)
   
   ## calculate Bray Curtis distnaces
   dist_bc <- phyloseq::distance(df.f, method = "bray")
   
   ## filter meta to times
   meta.f <- meta %>%
-    filter(timepoint %in% times) %>%
+    filter(timepoint %in% times &
+             species != "no_plant") %>%
     droplevels(.)
   
   # Run capscale

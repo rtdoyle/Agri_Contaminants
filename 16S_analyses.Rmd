@@ -31,6 +31,7 @@ library("devtools") ## this needs to be installed and loaded prior to running
 library("tidyverse") ## ggplot, dplyr, et c.
 library("readxl")
 library("cowplot")
+library("ggbeeswarm")
 library("ggrepel")
 library("car")
 library("emmeans")
@@ -150,21 +151,21 @@ meta.s <- meta_full %>%
   select(!where(~all(is.na(.))))
 
 ## add in more sample type info
-meta.s$type <- ifelse(is.na(meta.s$Sample_type) &
-                                 grepl("neg", meta.s$Sample_ID),
-                               "neg_control", 
-                               ifelse(meta.s$Sample_ID %in% c("RD157",
-                                                              "RD158",
-                                                              "RD159"),
-                                      "Commercial soil",
-                                      paste0(meta.s$Sample_type)))
+meta.s$type <- 
+  ifelse(is.na(meta.s$Sample_type) & grepl("neg", meta.s$Sample_ID), 
+         "neg_control",
+  ifelse(meta.s$Sample_ID %in% 
+           c("RD157","RD158","RD159"),
+         "Commercial soil",
+   ifelse(grepl("Autoclaved", meta.s$`Sample ID`, fixed = FALSE),
+                "Autoclaved", paste0(meta.s$Sample_type))))
 
 ## look at n_seqs depending on sample type
 ggplot(meta.s, aes(x = type, y = n_seqs)) +
   geom_boxplot()
 
 ## exclude water and NA for now
-## also exclude autoclaved soil samples
+## also exclude autoclaved soil samples (TP1)
 meta.f <- meta.s %>% 
   filter(!type %in% c("Water", "Commercial soil", "neg_control") &
            !grepl("Autoclaved", meta.s$`Sample ID`)) %>%
@@ -228,8 +229,9 @@ meta.f$timepoint <- ifelse(meta.f$Sampling_date == "2024-07-11",
                                ifelse(meta.f$Sampling_date %in% 
                                         c("2024-08-06", ## radish
                                           "2024-08-18", ## lettuce
-                                          "2024-08-19", ## pea
-                                          "2024-08-26"), ## pea
+                                          "2024-08-19", ## pea (first batch)
+                                          "2024-08-26", ## pea (second batch)
+                                          "2024-09-01"), ## plant-free controls
                                       "TP2","other"))
 ## initial sampling for peas (first batch planted)
 ## second pea sampling for second batch
@@ -239,14 +241,14 @@ meta.f$species <- ifelse(is.na(meta.f$Species) == FALSE,
                             paste0(meta.f$Species),
                             "no_plant")
 meta.f$species <- factor(meta.f$species,
-                            levels = c("no_plant", "L", "P", "R"))
+                            levels = c("no_plant", "L", "R", "P"))
 
 meta.f$species_tp <- ifelse(is.na(meta.f$Species) == FALSE,
                             paste0(meta.f$Species,"_",meta.f$timepoint),
                             "no_plant")
 meta.f$species_tp <- factor(meta.f$species_tp,
-                            levels = c("no_plant", "L_TP1", "P_TP1", "R_TP1",
-                                       "L_TP2", "P_TP2", "R_TP2"))
+                            levels = c("no_plant", "L_TP1", "R_TP1","P_TP1",
+                                       "L_TP2", "R_TP2", "P_TP2"))
 
 ## Add in trait data from indirect experiment (peas only, TP2)
 ### load emmeans
@@ -497,6 +499,7 @@ for (i in seq_along(out)) {
     lines(N, out[[i]], col = cols[i], lwd = 2)
 }
 dev.off()
+include_graphics("./16S_outputs/rarefaction_curve.png")
 
 ```
 
@@ -510,35 +513,39 @@ sampling depth. It ensures that differences in diversity are due to biological v
 
 Shannon
 What it measures:
-  * Richness (number of taxa)
-  * Evenness (how evenly distributed the taxa are)
+* Richness (number of taxa)
+* Evenness (how evenly distributed the taxa are)
 Interpretation:
-  * Higher values = more diverse communities.
-  * Sensitive to rare taxa — even low-abundance species contribute to the index.
-  * Typical range: Usually between 1.5 and 3.5 for ecological datasets. Higher
+* Higher values = more diverse communities.
+* Sensitive to rare taxa — even low-abundance species contribute to the index.
+* Typical range: Usually between 1.5 and 3.5 for ecological datasets. Higher
   for soil
 
 InvSimpson
 What it measures:
-  * Dominance and evenness.
-  * Less sensitive to rare taxa; emphasizes common taxa.
+* Dominance and evenness.
+* Less sensitive to rare taxa; emphasizes common taxa.
 Interpretation:
-  * Higher values = more even communities.
-  * A community dominated by one or few taxa will have a low inverse Simpson 
+* Higher values = more even communities.
+* A community dominated by one or few taxa will have a low inverse Simpson 
   value.
-  * Typical range: Starts at 1 (minimum diversity); higher values indicate more 
-  diversity.
+* Typical range: Starts at 1 (minimum diversity); higher values indicate more diversity.
 
 ```{r alpha_div}
 ## load relevant phyloseqs
 load(file = "./16S_outputs/phyloseq_noHOST_rarified.Rda") ## loads rare_ps
 
 ## Extract richness metrics to pair with metadata
-richness.df <- estimate_richness(rare_ps, measures = c("Shannon", 
-                                                            "InvSimpson"))
+richness.df <- estimate_richness(rare_ps, 
+                                 measures = 
+                                   c("Shannon",
+                                     "InvSimpson"))
 
 ## Combine with sample metadata
 richness.df <- cbind(sample_data(rare_ps), richness.df)
+
+## correction to InvSimp (x100)
+richness.df$InvSimpson.c <- richness.df$InvSimpson /100
 
 ## does diversity depend on species, amendment, timepoint?
 ### should just treat as a trait in indirect exp set up
@@ -557,311 +564,369 @@ richness.df$species_treat <-
 richness.df$species_treat <- 
   as.factor(richness.df$species_treat)
 richness.df$species_treat <- 
-  relevel(richness.df$species_treat, 
-                                     ref = "no_plant-Garden Soil")
+  relevel(richness.df$species_treat,
+          ref = "no_plant-Garden Soil")
+richness.df$spikeFac <- factor(richness.df$Spiking_level,
+                               levels = c("US","SL1","SL2"),
+                               ordered = TRUE)
+
+
+##### Plots (species, timepoint, treatment) #####
+
+### function
+source("./Source_code/plot_alpha_div.func.R")
+
+metric.list <- c("Shannon","InvSimpson.c")
+
+plots.out <- sapply(metric.list, 
+                plot_alpha_div.func, 
+                df = richness.df %>%
+                  filter(!treat.rn %in% 
+                           c("GH: Soil only",
+                             "GH: Soil + BS",
+                             "Biosolids",
+                             "Garden Soil")) %>%
+                          droplevels(.),
+                      USE.NAMES = TRUE, 
+                      simplify = FALSE)
+
+### Combine plots
+plots <- plot_grid(plots.out[["Shannon"]] +
+                         labs(y = "Shannon"),
+                       plots.out[["InvSimpson.c"]] +
+                         labs(y = "Inv. Simpson (x100)") +
+                         theme(strip.text = element_blank()),
+                       ncol = 1,
+                       nrow = 2,
+                       align = "v",
+                       rel_heights = c(1,0.9))
+
+### save plots
+plots
+ggsave("./16S_outputs/alpha_div_plots.png",
+       width=8, height=6, units = "in")
+include_graphics("./16S_outputs/alpha_div_plots.png")
+
+##### M1: species x amendment (for ea. timepoint separately) #####
 
 ## set contrasts
-options(contrasts=c("contr.treatment","contr.poly")) 
+options(contrasts=c("contr.sum","contr.poly")) 
 
-## 1) test single timepoint first to compare source materials
 
-## correction to InvSimp (x100)
-richness.df$InvSimpson.c <- richness.df$InvSimpson /100
+## 1)  species x amendment (for each timepoint sep)
+source("./Source_code/div_amend.func.R")
 
-### function
-source("./Source_code/div_tp1.func.R")
+metric.list <- c("Shannon","Shannon","InvSimpson.c","InvSimpson.c")
+time.list <- c("TP1","TP2","TP1","TP2")
+comb.list <- paste0(metric.list, "_", time.list)
 
-metric.list <- c("Shannon","InvSimpson.c")
-
-div.out <- sapply(metric.list, 
-                div_tp1.func, 
-                df = richness.df %>%
-                  filter(timepoint %in% c("other","TP1")) %>%
-                  droplevels(.),
+div.out <- mapply(FUN = div_amend.func, 
+                      combs = comb.list, 
+                      times = time.list, 
+                      metrics = metric.list, 
                       USE.NAMES = TRUE, 
-                      simplify = FALSE)
+                      SIMPLIFY = FALSE,
+                      MoreArgs = list(df = richness.df %>%
+                  filter(!species %in% c("no_plant") &
+                           !Spiking_level %in% c("SL1", "SL2"))))
 
-### Combine plots
-TP1_plots <- plot_grid(div.out[["Shannon"]][[1]] +
-                         labs(y = "Shannon"),
-                       div.out[["InvSimpson.c"]][[1]] +
-                         labs(y = "Inv. Simpson (x100"),
-                       ncol = 1)
-### save plots
-TP1_plots
-ggsave("./16S_outputs/TP1_div_plots.png",
-       width=6, height=8, units = "in")
-include_graphics("./16S_outputs/TP1_div_plots.png")
-
-### combine dfs and save
-aov <- lapply(div.out, `[[`, 2) %>%
+## save models
+aov <- lapply(div.out, `[[`, 1) %>%
   bind_rows(.)
-write.csv(aov, "./16S_outputs/div_tp1_aov.csv",
+write.csv(aov, "./16S_outputs/models/div_amend_aov.csv",
           row.names = FALSE)
-emm <- lapply(div.out, `[[`, 3) %>%
+emm <- lapply(div.out, `[[`, 2) %>%
   bind_rows(.)
-write.csv(emm, "./16S_outputs/div_tp1_emm.csv",
+write.csv(emm, "./16S_outputs/models/div_amend_emm.csv",
           row.names = FALSE)
-cont <- lapply(div.out, `[[`, 4) %>%
+cont <- lapply(div.out, `[[`, 3) %>%
   bind_rows(.)
-write.csv(cont, "./16S_outputs/div_tp1_cont.csv",
+write.csv(cont, "./16S_outputs/models/div_amend_cont.csv",
           row.names = FALSE)
 
-## 2)  species x timepoint x amendment? (exclude sources from TP1)
+##### M2: species x contaminant (for ea. amendement + TP separately) #####
+source("./Source_code/div_contam.func.R")
 
-### function
-metric.list <- c("Shannon","InvSimpson.c")
-source("./Source_code/div_treat.func.R")
+amend.list <- c(rep("RW",4), rep("BS",4))
+metric.list <- rep(c("Shannon","Shannon","InvSimpson.c","InvSimpson.c"),2)
+time.list <- rep(c("TP1","TP2","TP1","TP2"),2)
+comb.list <- paste0(metric.list, "_", amend.list, "-", time.list)
 
-div.out <- sapply(metric.list, 
-                div_treat.func, 
-                df = richness.df %>%
-                  filter(timepoint != "other") %>%
-                  droplevels(.),
+div.out <- mapply(FUN = div_contam.func, 
+                      combs = comb.list, 
+                      times = time.list, 
+                      metrics = metric.list, 
+                      amends = amend.list, 
                       USE.NAMES = TRUE, 
-                      simplify = FALSE)
+                      SIMPLIFY = FALSE,
+                      MoreArgs = list(df = richness.df %>%
+                  filter(!species %in% c("no_plant") &
+                           !treat.rn %in% c("control-0"))))
 
-### Combine plots
-treat_plots <- plot_grid(div.out[["Shannon"]][[1]] +
-                         labs(y = "Shannon"),
-                       div.out[["InvSimpson.c"]][[1]] +
-                         labs(y = "Inv. Simpson (x 100)"),
-                       ncol = 1,
-                       nrow = 2)
-### save plots
-treat_plots
-ggsave("./16S_outputs/treat_div_plots.png",
-       width=14, height=7, units = "in")
-include_graphics("./16S_outputs/treat_div_plots.png")
-
-aov <- lapply(div.out, `[[`, 2) %>%
+## save models
+aov <- lapply(div.out, `[[`, 1) %>%
   bind_rows(.)
-write.csv(aov, "./16S_outputs/div_treat_aov.csv",
+write.csv(aov, "./16S_outputs/models/div_contam_aov.csv",
           row.names = FALSE)
-emm <- lapply(div.out, `[[`, 3) %>%
+emm <- lapply(div.out, `[[`, 2) %>%
   bind_rows(.)
-write.csv(emm, "./16S_outputs/div_treat_emm.csv",
+write.csv(emm, "./16S_outputs/models/div_contam_emm.csv",
           row.names = FALSE)
-cont <- lapply(div.out, `[[`, 4) %>%
+cont <- lapply(div.out, `[[`, 3) %>%
   bind_rows(.)
-write.csv(cont, "./16S_outputs/div_treat_cont.csv",
+write.csv(cont, "./16S_outputs/models/div_contam_cont.csv",
           row.names = FALSE)
 
-### examine how diversity changes over time:
-richness.df.l <- richness.df %>%
-      filter(!timepoint %in% c("other")) %>%
-      droplevels(.) %>%
+##### Fig. 2: post-hoc tests #####
+## figures (contrasts)
+cont <- read_csv("./16S_outputs/div_amend_cont.csv")
+
+cont$amend <- ifelse(grepl("BS", cont$contrast, fixed = FALSE),
+                      "BS", "RW")
+
+cont$amend <- factor(cont$amend,
+                      levels = c("RW",
+                                 "BS"))
+
+cont$species <- factor(cont$species,
+                       levels = c("L",
+                                  "R",
+                                  "P"))
+
+cont$species.tp <- paste0(cont$species, "_",cont$time)
+cont$species.tp <- factor(cont$species.tp, levels = c(
+  "L_TP1","L_TP2", "R_TP1","R_TP2", "P_TP1","P_TP2"
+))
+
+cont$metric <- factor(cont$metric, 
+                      levels = c(
+  "Shannon","InvSimpson.c"))
+
+### rename traits
+metric_names <- c(
+  Shannon = 'Shannon',
+  InvSimpson.c = 'Inv. Simpson'
+)
+
+species.tp_names <- c(
+  L_TP1 = 'Lettuce @ 1wk PP',
+   L_TP2 = 'Lettuce @ harvest',
+  R_TP1 = 'Radish @ 1wk PP',
+  R_TP2 = 'Radish @ harvest',
+   P_TP1 = 'Pea @ 1wk PP',
+  P_TP2 = 'Pea @ harvest'
+)
+
+##### Contrasts (amendment type) #####
+M1_plot <- ggplot(data = cont,
+   aes(x = amend, 
+       y = log2(ratio), 
+       colour = amend)) +
+  geom_pointrange(aes(ymin = log2(lower.CL),
+                      ymax = log2(upper.CL)),
+                  position = position_dodge(0.5)) +
+  geom_hline(aes(yintercept = 0),
+             linetype = 2) +
+  coord_flip() +
+   scale_colour_manual(values = c(
+                                  "blue",
+                                 "#B06500")) +
+  facet_grid(metric~species.tp, scales = "fixed",
+             labeller = labeller(metric = metric_names,
+                                 species.tp = species.tp_names)) +
+  labs(x = NULL, y = expression(log[2]~"Fold Change (95% CL)")) +
+  guides(colour = "none") +
+  theme_bw() +
+  theme(
+    axis.text = element_text(size = 12),
+    axis.title.x = element_text(size = 14),
+    strip.text = element_text(size = 12, face = "bold"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+  )
+M1_plot
+
+
+## M2
+
+## emms (emmeans)
+emms <- read_csv("./16S_outputs/div_contam_emm.csv")
+
+emms$amend <- factor(emms$amend,
+                      levels = c("RW",
+                                 "BS"))
+
+emms$species <- factor(emms$species,
+                       levels = c("L",
+                                  "R",
+                                  "P"))
+
+emms$species.tp <- paste0(emms$species, "_", emms$time)
+
+emms$species.tp <- paste0(emms$species, "_",emms$time)
+emms$species.tp <- factor(emms$species.tp, levels = c(
+  "L_TP1","L_TP2", "R_TP1","R_TP2", "P_TP1","P_TP2"
+))
+
+emms$spikeFac <- factor(emms$spikeFac, levels = c(
+  "US","SL1","SL2"))
+
+emms$metric <- factor(emms$metric, 
+                      levels = c(
+  "Shannon","InvSimpson.c"))
+
+
+##### Contrasts (contamination level) #####
+M2_plot <- ggplot(data = emms,
+   aes(x = factor(spikeFac), 
+       y = emmean, 
+       colour = amend)) +
+  geom_line(aes(group = amend),
+            position = position_dodge(0.5)) +
+  geom_pointrange(aes(ymin = lower.CL,
+                      ymax = upper.CL),
+                  position = position_dodge(0.5)) +
+   scale_colour_manual(values = c(
+                                  "blue",
+                                 "#B06500")) +
+  scale_x_discrete(labels = c("0","1","2")) +
+  facet_grid(metric~species.tp, scales = "free",
+             labeller = labeller(metric = metric_names,
+                                 species.tp = species.tp_names)) +
+  labs(y = expression("EM mean (95% CL)"), 
+       x = "Contaminant spiking level") +
+  guides(colour = "none") +
+  theme_bw() +
+  theme(
+    axis.text = element_text(size = 12),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    strip.text.x = element_blank(),
+    strip.text.y = element_text(size = 12, face = "bold"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+  )
+M2_plot
+
+plots <- plot_grid(M1_plot, M2_plot,
+                   ncol = 1,
+                   nrow = 2,
+                   align = "v",
+                   labels = NULL)
+plots
+
+ggsave("./16S_outputs/models/alpha_div_model_plots.png", 
+       width = 11, height = 7, 
+       units = "in")
+
+
+##### 3) Alpha diversity vs plant traits: only look at peas #####
+
+### filter to P, make wide
+richness.pea.w_metric <- richness.df %>%
+  filter(species == "P") %>%
+  droplevels(.) %>%
+  pivot_wider(
+    names_from = timepoint,
+    values_from = c("Shannon", "InvSimpson"),
+    id_cols = pot_ID
+  )
+
+richness.pea.w_traits <- richness.df %>%
+  filter(species == "P" & 
+           timepoint == "TP2") %>%
+  droplevels(.)
+
+richness.pea.w <- left_join(richness.pea.w_traits, 
+                            richness.pea.w_metric,
+                            by = "pot_ID")
+
+richness.pea.l <- richness.pea.w %>%
   pivot_longer(
-    cols = c("Shannon", "InvSimpson.c"),
-    names_to = "Metric",
+    cols = c(resp_norm_plant_height4:resp_norm_shoot_moisture),
+    names_to = "trait",
     values_to = "units"
   )
 
-richness.df.l$Metric <- factor(richness.df.l$Metric,
-                               levels = c("Shannon",
-                                          "InvSimpson.c"))
-richness.df.l$timepoint <- factor(richness.df.l$timepoint,
-                                  levels = c("other","TP1","TP2"))
-levels(richness.df.l$timepoint) <- c("other","Planting","Harvest")
-
-# Custom labels for the 'Species' facet
-  Species.labs <- c(
-    no_plant = "No Plant",
-    L = "Lettuce",
-    P = "Pea",
-    R = "Radish"
-  )
-  
-  Metric.labs <- c(
-    Shannon = "Shannon",
-    InvSimpson.c = "Inv Simpson (x100)"
-  )
-  
-## plot
-p <-
-    ggplot(data = richness.df.l,
-      aes(x = timepoint, y = units, colour = treat.rn)) +
-    geom_line(aes(group = pot_ID),
-              position = position_dodge2(0.2)) +
-    geom_point(size = 3, alpha = 0.8, aes(group = pot_ID),
-               position = position_dodge2(0.2)) + 
-    scale_color_manual(values = c("gray",
-                                  "lightblue",
-                                  "cornflowerblue",
-                                  "blue",
-                                  "#EABD8C",
-                                  "#FFAD00",
-                                  "#B06500")) +
-    guides(color = "none", shape = "none") +
-    scale_shape_manual(values = c(16,17,15),
-                       labels = c("Lettuce", "Pea", "Radish")) + 
-    ggtitle(NULL) + 
-    labs(x = NULL, y = NULL) +
-    facet_grid(Metric~Species, scales = "free_y",
-               labeller = labeller("Species" = Species.labs,
-                                   "Metric" = Metric.labs)) +  
-    theme_bw() + 
-    theme(axis.title.x = element_text(size = 16),
-          axis.text.x = element_text(size = 14),
-          axis.title.y = element_text(size = 16),
-          axis.text.y = element_text(size = 14),
-          strip.text = element_text(size = 14, face = "bold"),
-          panel.grid.major = element_blank(),
-          panel.grid.minor = element_blank())
-p
-## save plot
-ggsave("./16S_outputs/alphadiv_noHOST_TP_rarified.png",
-       width = 8, height = 5, units = "in")
-include_graphics("./16S_outputs/alphadiv_noHOST_TP_rarified.png")
-
-
-## optional code: from phyloseq package
-## figures
-source("./Source_code/alpha_plot.func.R")
-
-times.list <- rep(c("TP1","TP2"),2)
-metrics.list <- c(rep("Shannon",2),rep("InvSimpson",2))
-combs.list <- paste0(times.list, "_", metrics.list)
-
-plots.out <- mapply(FUN = alpha_plot.func, 
-                      combs = combs.list, 
-                      times = times.list, 
-                      metrics = metrics.list, 
-                      USE.NAMES = TRUE, 
-                      SIMPLIFY = FALSE,
-                      MoreArgs = list(df = rare_ps)
-                   )
-
-## combine plots (all crops)
-fig1 <- plot_grid(plots.out[["TP1_Shannon"]] +
-                    ggtitle("One week post planting") +
-                    labs(y = "Shannons") +
-                    scale_y_continuous(limits = c(3, 8)) +
-                    theme(axis.title.y = element_text(size = 14,
-                                                      angle = 90,
-                                                      vjust = 0.5),
-                          axis.text.y = element_text(size = 12),
-                          plot.title = element_text(hjust = 0.5, 
-                                                    size = 18,
-                                                    face = "bold"),
-                          plot.margin = margin(t = 0.1, r = 0.1,
-                                               b = 0.1, l = 0.1, unit = "cm"),
-                          strip.text.x = element_text(size = 14, face = "bold")), 
-                  plots.out[["TP1_InvSimpson"]] +
-                    labs(y = "Inverse Simpsons") +
-                    scale_y_continuous(limits = c(0, 600)) +
-                    theme(axis.title.y = element_text(size = 14,
-                                                      angle = 90,
-                                                      vjust = 0.5),
-                          axis.text.y = element_text(size = 12),
-                          axis.title.x = element_text(size = 14),
-                          axis.text.x = element_text(size = 12,
-                                                     angle = 90,
-                                                     vjust = 0.5),
-                          plot.margin = margin(t = 0.1, r = 0.1,
-                                               b = 0.1, l = 0.1, unit = "cm")),
-                  rel_widths = c(1.1, 1),
-          ncol = 1,
-          nrow = 2,
-          align = "v",
-          labels = NULL)
-
-fig2 <- plot_grid(plots.out[["TP2_Shannon"]] +
-                    ggtitle("At harvest") +
-                    scale_y_continuous(limits = c(3, 8)) +
-                    theme(plot.title = element_text(hjust = 0.5, 
-                                                    size = 18,
-                                                    face = "bold"),
-                          plot.margin = margin(t = 0.1, r = 0.1,
-                                               b = 0.1, l = 0.5, unit = "cm"),
-                          strip.text.x = element_text(size = 14, face = "bold")),
-                  
-                  plots.out[["TP2_InvSimpson"]] +
-                    scale_y_continuous(limits = c(0, 600)) +
-                    theme(axis.title.x = element_text(size = 14),
-                          axis.text.x = element_text(size = 12,
-                                                     angle = 90,
-                                                     vjust = 0.5),
-                          plot.margin = margin(t = 0.1, r = 0.1,
-                                               b = 0.1, l = 0.5, unit = "cm")),
-                  rel_widths = c(1.1, 1),
-          ncol = 1,
-          nrow = 2,
-          align = "v",
-          labels = NULL)
-
-fig <- plot_grid(fig1, fig2,
-                ncol = 2,
-                nrow = 1,
-                rel_widths = c(1.1, 1),
-                align = "h",
-                labels = NULL)
-fig
-
-ggsave("./16S_outputs/alphadiv_noHOST_rarified.png",
-       width = 8, height = 5, units = "in")
-include_graphics("./16S_outputs/alphadiv_noHOST_rarified.png")
-  
-## 3) does alpha diversity correlate with plant traits? only look at tp2
-
-### filter to P_TP1
-richness.peaTP2 <- richness.df %>%
-  filter(species_tp == "P_TP2") %>%
-  droplevels(.)
-
-### traits to run through
-trait.list <- rep(c(
-               "plant_height4",
-               "chlorophyll_content4_mean", 
-               "leaf_number2",              
-               "wet_shoot_weight",         
-               "dry_shoot_weight",          
-               "wet_root_weight",           
-               "dry_root_weight",           
-               "dry_total_weight",         
-               "shoot_root_ratio",          
-               "shoot_moisture"  
-                ), 2)
-
-## add response before each trait (to get emmean)
-trait.list <- paste0("resp_norm_", trait.list)
-
 ## create list of traits/amends to loop through:
-metric.list <- c(rep(c("Shannon"),10), rep(c("InvSimpson.c"),10))
-comb.list <- paste0(trait.list, ", ", metric.list)
+metric.list <- c("Shannon_TP1","Shannon_TP2",
+                 "InvSimpson_TP1","InvSimpson_TP2")
 
 ## source the function:
-source("./Source_code/div_trait.func.R")
+source("./Source_code/plot_div_vs_trait.func.R")
 
-lm.out <- mapply(FUN = div_trait.func, 
+plots.out <- sapply(metric.list,
+                 plot_div_vs_trait.func,
+                 df = richness.pea.l,
+                 simplify = FALSE,
+                 USE.NAMES = TRUE)
+
+### Combine plots
+plots_Shannon <- plot_grid(plots.out[["Shannon_TP1"]] +
+                     labs(y = "Shannon @ 1wk PP"),
+                   plots.out[["Shannon_TP2"]] +
+                     labs(y = "Shannon @ harvest"),
+                   ncol = 2,
+                   nrow = 1,
+                   align = "h",
+                   labels = NULL)
+
+plots_Simpson <- plot_grid(plots.out[["InvSimpson_TP1"]] +
+                     labs(y = "Inv. Simpson @ 1wk PP"),
+                   plots.out[["InvSimpson_TP2"]] +
+                     labs(y = "Inv. Simpson @ harvest"),
+                   ncol = 2,
+                   nrow = 1,
+                   align = "h",
+                   labels = NULL)
+
+### save plots
+plots_Shannon
+ggsave("./16S_outputs/models/Shannon_v_traits_plots.png",
+       width=12, height=12, units = "in")
+include_graphics("./16S_outputs/models/Shannon_v_traits_plots.png")
+
+plots_Simpson
+ggsave("./16S_outputs/models/Simpson_v_traits_plots.png",
+       width=12, height=12, units = "in")
+include_graphics("./16S_outputs/models/Simpson_v_traits_plots.png")
+
+## linear models to get regression coeffs
+
+## traits to run through
+trait.list_nt <- rep(c("plant_height4",
+                "chlorophyll_content4_mean", 
+                "leaf_number2",
+                "wet_shoot_weight", 
+                "dry_shoot_weight",
+                "wet_root_weight", 
+                "dry_root_weight",
+                "dry_total_weight",
+                "shoot_root_ratio",
+                "shoot_moisture"),4)
+
+trait.list <- paste0("resp_norm_", trait.list_nt)
+
+## create list of traits/amends to loop through:
+metric.list <- c(rep("Shannon_TP1",10), rep("Shannon_TP2",10),
+                 rep("InvSimpson_TP1",10), rep("InvSimpson_TP2",10))
+comb.list <- paste0(trait.list, ", ", metric.list)
+
+## source function
+source("./Source_code/div_vs_trait.func.R")
+
+lm.out <- mapply(FUN = div_vs_trait.func, 
                       combs = comb.list, 
                       traits = trait.list, 
                       metrics = metric.list, 
                       USE.NAMES = TRUE, 
                       SIMPLIFY = FALSE,
-                      MoreArgs = list(df = richness.peaTP2))
-
-### Combine plots
-plot_list <- lapply(lm.out, `[[`, 1) %>%
-  list(.)
-Shannon_plots <- plot_grid(plotlist = plot_list[[1]][1:10], ncol = 2)
-Simpson_plots <- plot_grid(plotlist = plot_list[[1]][11:20], ncol = 2)
-
-### save plots
-Shannon_plots
-ggsave("./16S_outputs/Shannon_v_traits.png",
-       width=6, height=12, units = "in")
-include_graphics("./16S_outputs/Shannon_v_traits.png")
-
-Simpson_plots
-ggsave("./16S_outputs/Simpson_v_traits.png",
-       width=6, height=12, units = "in")
-include_graphics("./16S_outputs/Simpson_v_traits.png")
-
+                      MoreArgs = list(df = richness.pea.w)
+                   )
 ### coeffs
-lm_coeffs <- lapply(lm.out, `[[`, 2) %>%
+lm_coeffs <- lapply(lm.out, `[[`, 1) %>%
   bind_rows(.)
-write.csv(lm_coeffs, "./16S_outputs/models/lm_coeff.csv", 
+write.csv(lm_coeffs, "./16S_outputs/models/div_vs_traits-lm_coeffs.csv", 
           row.names = TRUE)
 ```
 

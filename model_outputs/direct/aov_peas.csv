@@ -1,9 +1,0 @@
-"Sum Sq","Df","F value","Pr(>F)","trait","term","LR Chisq","Pr(>Chisq)"
-1.33363800125031,2,0.551711296086522,0.602630064810627,"wet_pod_weight","contam",NA,NA
-7.2518254241499,6,NA,NA,"wet_pod_weight","Residuals",NA,NA
-1.19878689641672,2,0.582064859362941,0.587439882714591,"dry_pod_weight","contam",NA,NA
-6.17862533942746,6,NA,NA,"dry_pod_weight","Residuals",NA,NA
-2.05980374973364,2,1,0.421875,"infected_peas_perc.corr","contam",NA,NA
-6.17941124920091,6,NA,NA,"infected_peas_perc.corr","Residuals",NA,NA
-NA,2,NA,NA,"pods","contam",5.70157907634928,0.0577986685998
-NA,2,NA,NA,"flowers","contam",3.76094611884297,0.152517938640743

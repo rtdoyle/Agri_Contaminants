@@ -8,7 +8,8 @@ beta_plot.func <- function(combs, times, metrics, df){
   time <- as.character(times)
   
   ## subset to specific timepoints
-  df.f <- prune_samples(sample_data(df)$timepoint %in% time, df)
+  df.f1 <- prune_samples(sample_data(df)$species != "no_plant", df)
+  df.f <- prune_samples(sample_data(df.f1)$timepoint %in% time, df.f1)
   
   ## ordinate
   RA.ord <- ordinate(df.f, method = metric, 
