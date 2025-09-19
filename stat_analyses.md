@@ -1,7 +1,7 @@
 Phenotypic responses
 ================
 RTD, II
-2025-08-18
+2025-09-19
 
 ## Direct impacts of contaminants on crop growth
 
@@ -173,7 +173,7 @@ direct$species <- factor(direct$species,
 save(direct, file = "./direct-formatted.Rda")
 ```
 
-### Models
+### Direct experiment: models
 
 #### Model 1: amendment type x species
 
@@ -658,50 +658,122 @@ aov <- lapply(mod1.out, `[[`, 1) %>%
   bind_rows(.)
 ### format
 aov$pval <- ifelse(is.na(aov$`Pr(>F)`) == FALSE,
-                   aov$`Pr(>F)`,
-                   aov$`Pr(>Chisq)`)
-aov$sig <- ifelse(aov$pval< 0.001, "***",
-            ifelse(aov$pval < 0.01, "**",
-            ifelse(aov$pval < 0.05, "*",
-            ifelse(aov$pval < 0.1, ".",
-                               "ns"))))
+                   signif(aov$`Pr(>F)`, 3),
+                   signif(aov$`Pr(>Chisq)`, 3))
+aov$sig <- ifelse(aov$pval< 0.001, ", p < 0.001",
+            ifelse(aov$pval < 0.01, paste0(", p = ", aov$pval, "**"),
+            ifelse(aov$pval < 0.05, paste0(", p = ", aov$pval, "*"),
+            ifelse(aov$pval < 0.1, paste0(", p = ", aov$pval, "."),
+                               ", p > 0.1"))))
 aov$stat <- ifelse(is.na(aov$`F value`) == FALSE,
-                   signif(aov$`F value`, 3),
-                   signif(aov$`LR Chisq`, 3))
-aov$stat_sig <- paste0(aov$stat, aov$sig)
-write.csv(aov, "./direct/model_outputs/aov1.csv", 
+                        signif(aov$`F value`, 3),
+                        signif(aov$`LR Chisq`, 3))
+
+## pivot wider for each model term
+aov.w <- aov %>%
+  select(-c(`F value`,"Pr(>F)", "LR Chisq", 
+            "Pr(>Chisq)","pval", "Sum Sq")) %>%
+  pivot_wider(
+    names_from = term,
+    values_from = c(stat, Df, sig)
+  ) ## 15 traits total, 15 rows
+
+## formatting
+aov.f <- aov.w %>%
+  mutate(Amendment = ifelse(trait %in% c("pods","flowers"),
+                         paste0("X2 = ", stat_contam, 
+                                ", df = ", Df_contam,
+                                sig_contam),
+                         paste0("F [", Df_contam, ", ",
+                                Df_Residuals, "] = ", stat_contam,
+                                sig_contam)),
+         Species = ifelse(trait %in% c("wet_pod_weight.corr",
+                               "dry_pod_weight.corr", 
+                               "NDVI_mean",
+                               "pods",
+                               "flowers"), "N/A (Pea only)",
+                    paste0("F [", Df_species, ", ",
+                           Df_Residuals, "] = ", stat_species,
+                           sig_species)),
+         `Species x Amendment` = 
+           ifelse(trait %in% c("wet_pod_weight.corr",
+                               "dry_pod_weight.corr", 
+                               "NDVI_mean",
+                               "pods",
+                               "flowers"), "N/A (Pea only)",
+                        paste0("F [", 
+                               `Df_species:contam`, ", ",
+                                Df_Residuals, "] = ",
+                               `stat_species:contam`,
+                               `sig_species:contam`))
+         ) %>%
+  select(trait, Species, Amendment, `Species x Amendment`)
+
+### CONTRASTS
+cont <- lapply(mod1.out, `[[`, 3) %>%
+  bind_rows(.)
+
+## add in pea
+cont$crop <- ifelse(is.na(cont$species) == TRUE, "pea", 
+                    paste0(cont$species))
+## round pval
+cont$pval <- signif(cont$p.value, 3)
+### format
+cont$sig <- ifelse(cont$p.value < 0.001, ", p < 0.001",
+            ifelse(cont$p.value < 0.01, paste0(", p = ", cont$pval, "**"),
+            ifelse(cont$p.value < 0.05, paste0(", p = ", cont$pval, "*"),
+            ifelse(cont$p.value < 0.1, paste0(", p = ", cont$pval, "."),
+                               ", p > 0.1"))))
+## test stats
+cont$stat <- ifelse(is.na(cont$t.ratio) == FALSE,
+                        signif(cont$t.ratio, 3),
+                        signif(cont$z.ratio, 3))
+
+cont$stat.f <- ifelse(cont$trait %in% c("pods","flowers"),
+                      paste0("z = ", cont$stat,
+                    cont$sig),
+                    paste0("t = ", cont$stat, ", ", 
+                    "df = ", cont$df,
+                    cont$sig)
+)
+## estimates
+cont$log2FC <- log2(cont$ratio)
+cont$LCL <- ifelse(is.na(cont$lower.CL) == TRUE,
+                   signif(log2(cont$asymp.LCL), 3),
+                   signif(log2(cont$lower.CL), 3))
+cont$UCL <- ifelse(is.na(cont$upper.CL) == TRUE,
+                   signif(log2(cont$asymp.UCL), 3),
+                   signif(log2(cont$upper.CL), 3))
+cont$log2FC_CL <- paste0(signif(cont$log2FC, 3), " [",
+                        cont$LCL," to ",
+                        cont$UCL,"]")
+## save as R data file
+save(cont, file = "./direct/model_outputs/cont1.Rdata")
+
+## save relevant output for table
+cont.s <- cont %>%
+  filter(p.value < 0.1) %>%
+  mutate(
+    contrast_info = paste0(crop, "_", contrast, ": ", 
+                           stat.f, "; ", 
+                           "log2FC [95% CL] = ", log2FC_CL)
+    ) %>%
+  select(trait, contrast_info) %>%
+  group_by(trait) %>%
+  summarize(
+    sig_contrasts = paste(contrast_info, collapse = " | ")
+    )
+
+## add to anova
+aov.f$sig_contrasts <- cont.s$sig_contrasts[match(aov.f$trait, cont.s$trait)] 
+## save
+write.csv(aov.f, "./direct/model_outputs/aov1.csv", 
           row.names = FALSE)
+
 ### emmeans
 emm <- lapply(mod1.out, `[[`, 2) %>%
   bind_rows(.)
 write.csv(emm, "./direct/model_outputs/emm1.csv", 
-          row.names = FALSE)
-### CONTRASTS
-cont <- lapply(mod1.out, `[[`, 3) %>%
-  bind_rows(.)
-cont$crop <- ifelse(is.na(cont$species) == TRUE, "pea", 
-                    paste0(cont$species))
-### format
-cont$sig <- ifelse(cont$'p.value' 
-                     < 0.001, "***",
-                    ifelse(cont$'p.value' 
-                           < 0.01, "**",
-                    ifelse(cont$'p.value' 
-                                  < 0.05, "*",
-                    ifelse(cont$'p.value' 
-                                       < 0.1,
-                                       ".",
-                                       "ns"))))
-cont$LCL <- ifelse(is.na(cont$lower.CL) == TRUE,
-                   signif(cont$asymp.LCL, 3),
-                   signif(cont$lower.CL, 3))
-cont$UCL <- ifelse(is.na(cont$upper.CL) == TRUE,
-                   signif(cont$asymp.UCL, 3),
-                   signif(cont$upper.CL, 3))
-cont$ratio_CL <- paste0(signif(cont$ratio, 3), " (",
-                        cont$LCL," - ",
-                        cont$UCL,")")
-write.csv(cont, "./direct/model_outputs/cont1.csv", 
           row.names = FALSE)
 ```
 
@@ -1582,21 +1654,127 @@ mod2.out <- mapply(FUN = lmm2.func,
 ### ANOVAs
 aov <- lapply(mod2.out, `[[`, 1) %>%
   bind_rows(.)
+
 ### format
 aov$pval <- ifelse(is.na(aov$`Pr(>F)`) == FALSE,
-                   aov$`Pr(>F)`,
-                   aov$`Pr(>Chisq)`)
-aov$sig <- ifelse(aov$pval< 0.001, "***",
-            ifelse(aov$pval < 0.01, "**",
-            ifelse(aov$pval < 0.05, "*",
-            ifelse(aov$pval < 0.1, ".",
-                               "ns"))))
+                   signif(aov$`Pr(>F)`, 3),
+                   signif(aov$`Pr(>Chisq)`, 3))
+aov$sig <- ifelse(aov$pval< 0.001, ", p < 0.001",
+            ifelse(aov$pval < 0.01, paste0(", p = ", aov$pval, "**"),
+            ifelse(aov$pval < 0.05, paste0(", p = ", aov$pval, "*"),
+            ifelse(aov$pval < 0.1, paste0(", p = ", aov$pval, "."),
+                               ", p > 0.1"))))
 aov$stat <- ifelse(is.na(aov$`F value`) == FALSE,
-                   signif(aov$`F value`, 3),
-                   signif(aov$`LR Chisq`, 3))
-aov$stat_sig <- paste0(aov$stat, aov$sig)
-write.csv(aov, "./direct/model_outputs/aov2.csv", 
+                        signif(aov$`F value`, 3),
+                        signif(aov$`LR Chisq`, 3))
+
+## pivot wider for each model term
+aov.w <- aov %>%
+  select(-c(`F value`,"Pr(>F)", "LR Chisq", 
+            "Pr(>Chisq)","pval", "Sum Sq")) %>%
+  pivot_wider(
+    names_from = term,
+    values_from = c(stat, Df, sig)
+  ) ## 14 traits by two amend types = 28 rows
+
+## formatting
+aov.f <- aov.w %>%
+  mutate(`Spiking level (SL)` = ifelse(trait %in% c("pods","flowers"),
+                         paste0("X2 = ", stat_spikeFac, 
+                                ", df = ", Df_spikeFac,
+                                sig_spikeFac),
+                         paste0("F [", Df_spikeFac, ", ",
+                                Df_Residuals, "] = ", stat_spikeFac,
+                                sig_spikeFac)),
+         Species = ifelse(trait %in% c("wet_pod_weight.corr",
+                               "dry_pod_weight.corr", 
+                               "NDVI_mean",
+                               "pods",
+                               "flowers"), "N/A (Pea only)",
+                    paste0("F [", Df_species, ", ",
+                           Df_Residuals, "] = ", stat_species,
+                           sig_species)),
+         `Species x SL` = 
+           ifelse(trait %in% c("wet_pod_weight.corr",
+                               "dry_pod_weight.corr", 
+                               "NDVI_mean",
+                               "pods",
+                               "flowers"), "N/A (Pea only)",
+                        paste0("F [", 
+                               `Df_species:spikeFac`, ", ",
+                                Df_Residuals, "] = ",
+                               `stat_species:spikeFac`,
+                               `sig_species:spikeFac`))
+         ) %>%
+  select(trait, Amendment = amend, Species, `Spiking level (SL)`, `Species x SL`)
+
+### CONTRASTS
+cont <- lapply(mod2.out, `[[`, 3) %>%
+  bind_rows(.)
+
+## add in pea
+cont$crop <- ifelse(is.na(cont$species) == TRUE, "pea", 
+                    paste0(cont$species))
+## round pval
+cont$pval <- signif(cont$p.value, 3)
+### format
+cont$sig <- ifelse(cont$p.value < 0.001, ", p < 0.001",
+            ifelse(cont$p.value < 0.01, paste0(", p = ", cont$pval, "**"),
+            ifelse(cont$p.value < 0.05, paste0(", p = ", cont$pval, "*"),
+            ifelse(cont$p.value < 0.1, paste0(", p = ", cont$pval, "."),
+                               ", p > 0.1"))))
+## test stats
+cont$stat <- ifelse(is.na(cont$t.ratio) == FALSE,
+                        signif(cont$t.ratio, 3),
+                        signif(cont$z.ratio, 3))
+
+cont$stat.f <- ifelse(cont$trait %in% c("pods","flowers"),
+                      paste0("z = ", cont$stat,
+                    cont$sig),
+                    paste0("t = ", cont$stat, ", ", 
+                    "df = ", cont$df,
+                    cont$sig)
+)
+## estimates
+cont$Est_r <- signif(cont$estimate, 3)
+cont$LCL <- ifelse(is.na(cont$lower.CL) == TRUE,
+                   signif(cont$asymp.LCL, 3),
+                   signif(cont$lower.CL, 3))
+cont$UCL <- ifelse(is.na(cont$upper.CL) == TRUE,
+                   signif(cont$asymp.UCL, 3),
+                   signif(cont$upper.CL, 3))
+cont$Est_CL <- paste0(cont$Est_r, " [",
+                        cont$LCL," to ",
+                        cont$UCL,"]")
+## save as R data file
+save(cont, file = "./direct/model_outputs/cont2.Rdata")
+
+## save relevant output for table
+cont.s <- cont %>%
+  filter(p.value < 0.1 &
+           contrast == "linear") %>%
+  mutate(
+    contrast_info = paste0(crop, "_", contrast, ": ", 
+                           stat.f, "; ", 
+                           "Est. [95% CL] = ", Est_CL)
+    ) %>%
+  select(trait, Amendment = amend, contrast_info) %>%
+  group_by(trait, Amendment) %>%
+  summarize(
+    sig_contrasts = paste(contrast_info, collapse = " | ")
+    )
+```
+
+    ## `summarise()` has grouped output by 'trait'. You can override using the
+    ## `.groups` argument.
+
+``` r
+## add to anova
+aov.f <- left_join(aov.f, cont.s, by = c("trait","Amendment"))
+## save
+write.csv(aov.f, "./direct/model_outputs/aov2.csv", 
           row.names = FALSE)
+
 ### emmeans
 emm <- lapply(mod2.out, `[[`, 2) %>%
   bind_rows(.)
@@ -1608,33 +1786,6 @@ emm$UCL.bt <- ifelse(is.na(emm$upper.CL) == TRUE,
                          exp(emm$asymp.UCL),
                          exp(emm$upper.CL))
 write.csv(emm, "./direct/model_outputs/emm2.csv", 
-          row.names = FALSE)
-### CONTRASTS
-cont <- lapply(mod2.out, `[[`, 3) %>%
-  bind_rows(.)
-cont$crop <- ifelse(is.na(cont$species) == TRUE, "pea", 
-                    paste0(cont$species))
-### format
-cont$sig <- ifelse(cont$'p.value' 
-                     < 0.001, "***",
-                    ifelse(cont$'p.value' 
-                           < 0.01, "**",
-                    ifelse(cont$'p.value' 
-                                  < 0.05, "*",
-                    ifelse(cont$'p.value' 
-                                       < 0.1,
-                                       ".",
-                                       "ns"))))
-cont$LCL <- ifelse(is.na(cont$lower.CL) == TRUE,
-                   signif(cont$asymp.LCL, 3),
-                   signif(cont$lower.CL, 3))
-cont$UCL <- ifelse(is.na(cont$upper.CL) == TRUE,
-                   signif(cont$asymp.UCL, 3),
-                   signif(cont$upper.CL, 3))
-cont$est_CL <- paste0(signif(cont$estimate, 3)," (",
-                        cont$LCL," to ",
-                        cont$UCL,")")
-write.csv(cont, "./direct/model_outputs/cont2.csv", 
           row.names = FALSE)
 ```
 
@@ -1864,12 +2015,9 @@ fig1 <- plot_grid(plots.out1[["dry_total_weight"]] +
           labels = NULL)
 ```
 
-    ## Warning: Removed 1 row containing missing values or values outside the scale range
-    ## (`geom_point()`).
-    ## Removed 1 row containing missing values or values outside the scale range
-    ## (`geom_point()`).
-    ## Removed 1 row containing missing values or values outside the scale range
-    ## (`geom_point()`).
+    ## Warning: Removed 1 rows containing missing values (`geom_point()`).
+    ## Removed 1 rows containing missing values (`geom_point()`).
+    ## Removed 1 rows containing missing values (`geom_point()`).
 
 ``` r
 fig1.b <- ggdraw() +
@@ -1896,8 +2044,7 @@ legend <- get_legend(
     theme(legend.position = "bottom"))
 ```
 
-    ## Warning: Removed 1 row containing missing values or values outside the scale range
-    ## (`geom_point()`).
+    ## Warning: Removed 1 rows containing missing values (`geom_point()`).
 
 ``` r
 legend_fig <- plot_grid(legend)
@@ -2005,12 +2152,9 @@ fig_peas <- plot_grid(
   labels = NULL)
 ```
 
-    ## Warning: Removed 1 row containing missing values or values outside the scale range
-    ## (`geom_point()`).
-    ## Removed 1 row containing missing values or values outside the scale range
-    ## (`geom_point()`).
-    ## Removed 1 row containing missing values or values outside the scale range
-    ## (`geom_point()`).
+    ## Warning: Removed 1 rows containing missing values (`geom_point()`).
+    ## Removed 1 rows containing missing values (`geom_point()`).
+    ## Removed 1 rows containing missing values (`geom_point()`).
 
     ## `geom_smooth()` using formula = 'y ~ x'
 
@@ -2090,32 +2234,14 @@ ggsave("./direct/figs/Fig1_direct.png",
 
 ``` r
 ## figures (contrasts)
-cont <- read_csv("./direct/model_outputs/cont1.csv")
-```
+load(file = "./direct/model_outputs/cont1.Rdata") ## loads cont
 
-    ## Rows: 70 Columns: 19
-    ## ── Column specification ────────────────────────────────────────────────────────
-    ## Delimiter: ","
-    ## chr  (6): contrast, species, trait, crop, sig, ratio_CL
-    ## dbl (13): ratio, SE, df, lower.CL, upper.CL, null, t.ratio, p.value, asymp.L...
-    ## 
-    ## ℹ Use `spec()` to retrieve the full column specification for this data.
-    ## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
-
-``` r
 cont$contam <- ifelse(grepl("BS", cont$contrast, fixed = FALSE),
                       "BS", "RW")
 
 cont$contam <- factor(cont$contam,
                       levels = c("RW",
                                  "BS"))
-
-cont$species <- ifelse(is.na(cont$species) == TRUE,
-                       "pea",cont$species)
-cont$species <- factor(cont$species,
-                       levels = c("lettuce",
-                                  "radish",
-                                  "pea"))
 
 ### sig traits
 sig.traits <- c("survival_perc.corr",
@@ -2126,7 +2252,6 @@ sig.traits <- c("survival_perc.corr",
 cont.f <- cont %>%
          filter(trait %in% sig.traits) %>%
          droplevels(.)
-
 
 cont.f$trait <- factor(cont.f$trait,
           levels = c(#"dry_shoot_weight","dry_root_weight",
@@ -2217,13 +2342,22 @@ emms$species <- factor(emms$species,
 
 ### sig traits
 sig.traits <- c("survival_perc.corr",
-                "shoot_moisture","shoot_root_ratio",
+                "shoot_moisture",
+                "shoot_root_ratio",
                 "dry_total_weight")
 
 ### filter dataset to sig traits
 emms.f <- emms %>%
          filter(trait %in% sig.traits) %>%
          droplevels(.)
+
+## trait order
+emms.f$trait <- factor(emms.f$trait,
+          levels = c(#"dry_shoot_weight","dry_root_weight",
+         "dry_total_weight", 
+         "shoot_root_ratio",
+         "shoot_moisture",
+         "survival_perc.corr"))
 
 ### rename traits
 trait_names <- c(
@@ -3867,71 +4001,59 @@ for (d in direct_cols) {
 
     ## `geom_smooth()` using formula = 'y ~ x'
 
-    ## Warning: Removed 1 row containing non-finite outside the scale range
-    ## (`stat_smooth()`).
+    ## Warning: Removed 1 rows containing non-finite values (`stat_smooth()`).
 
-    ## Warning: Removed 1 row containing missing values or values outside the scale range
-    ## (`geom_point()`).
+    ## Warning: Removed 1 rows containing missing values (`geom_point()`).
 
     ## `geom_smooth()` using formula = 'y ~ x'
 
-    ## Warning: Removed 1 row containing non-finite outside the scale range (`stat_smooth()`).
-    ## Removed 1 row containing missing values or values outside the scale range
-    ## (`geom_point()`).
+    ## Warning: Removed 1 rows containing non-finite values (`stat_smooth()`).
+    ## Removed 1 rows containing missing values (`geom_point()`).
 
     ## `geom_smooth()` using formula = 'y ~ x'
 
-    ## Warning: Removed 1 row containing non-finite outside the scale range (`stat_smooth()`).
-    ## Removed 1 row containing missing values or values outside the scale range
-    ## (`geom_point()`).
+    ## Warning: Removed 1 rows containing non-finite values (`stat_smooth()`).
+    ## Removed 1 rows containing missing values (`geom_point()`).
 
     ## `geom_smooth()` using formula = 'y ~ x'
 
-    ## Warning: Removed 1 row containing non-finite outside the scale range (`stat_smooth()`).
-    ## Removed 1 row containing missing values or values outside the scale range
-    ## (`geom_point()`).
+    ## Warning: Removed 1 rows containing non-finite values (`stat_smooth()`).
+    ## Removed 1 rows containing missing values (`geom_point()`).
 
     ## `geom_smooth()` using formula = 'y ~ x'
 
-    ## Warning: Removed 1 row containing non-finite outside the scale range (`stat_smooth()`).
-    ## Removed 1 row containing missing values or values outside the scale range
-    ## (`geom_point()`).
+    ## Warning: Removed 1 rows containing non-finite values (`stat_smooth()`).
+    ## Removed 1 rows containing missing values (`geom_point()`).
 
     ## `geom_smooth()` using formula = 'y ~ x'
 
-    ## Warning: Removed 1 row containing non-finite outside the scale range (`stat_smooth()`).
-    ## Removed 1 row containing missing values or values outside the scale range
-    ## (`geom_point()`).
+    ## Warning: Removed 1 rows containing non-finite values (`stat_smooth()`).
+    ## Removed 1 rows containing missing values (`geom_point()`).
 
     ## `geom_smooth()` using formula = 'y ~ x'
 
-    ## Warning: Removed 1 row containing non-finite outside the scale range (`stat_smooth()`).
-    ## Removed 1 row containing missing values or values outside the scale range
-    ## (`geom_point()`).
+    ## Warning: Removed 1 rows containing non-finite values (`stat_smooth()`).
+    ## Removed 1 rows containing missing values (`geom_point()`).
 
     ## `geom_smooth()` using formula = 'y ~ x'
 
-    ## Warning: Removed 1 row containing non-finite outside the scale range (`stat_smooth()`).
-    ## Removed 1 row containing missing values or values outside the scale range
-    ## (`geom_point()`).
+    ## Warning: Removed 1 rows containing non-finite values (`stat_smooth()`).
+    ## Removed 1 rows containing missing values (`geom_point()`).
 
     ## `geom_smooth()` using formula = 'y ~ x'
 
-    ## Warning: Removed 1 row containing non-finite outside the scale range (`stat_smooth()`).
-    ## Removed 1 row containing missing values or values outside the scale range
-    ## (`geom_point()`).
+    ## Warning: Removed 1 rows containing non-finite values (`stat_smooth()`).
+    ## Removed 1 rows containing missing values (`geom_point()`).
 
     ## `geom_smooth()` using formula = 'y ~ x'
 
-    ## Warning: Removed 1 row containing non-finite outside the scale range (`stat_smooth()`).
-    ## Removed 1 row containing missing values or values outside the scale range
-    ## (`geom_point()`).
+    ## Warning: Removed 1 rows containing non-finite values (`stat_smooth()`).
+    ## Removed 1 rows containing missing values (`geom_point()`).
 
     ## `geom_smooth()` using formula = 'y ~ x'
 
-    ## Warning: Removed 1 row containing non-finite outside the scale range (`stat_smooth()`).
-    ## Removed 1 row containing missing values or values outside the scale range
-    ## (`geom_point()`).
+    ## Warning: Removed 1 rows containing non-finite values (`stat_smooth()`).
+    ## Removed 1 rows containing missing values (`geom_point()`).
 
 ``` r
 # Combine results
@@ -3946,12 +4068,6 @@ heatmap_matrix <- as.matrix(heatmap_data[,-1])
 rownames(heatmap_matrix) <- heatmap_data$Direct
 
 # Plot heatmap
-library(pheatmap)
-```
-
-    ## Warning: package 'pheatmap' was built under R version 4.4.3
-
-``` r
 pheatmap(heatmap_matrix,
          display_numbers = TRUE,
          color = colorRampPalette(c("blue", "white", "red"))(100),
@@ -4080,9 +4196,8 @@ corr_plot
 
     ## `geom_smooth()` using formula = 'y ~ x'
 
-    ## Warning: Removed 1 row containing non-finite outside the scale range (`stat_smooth()`).
-    ## Removed 1 row containing missing values or values outside the scale range
-    ## (`geom_point()`).
+    ## Warning: Removed 1 rows containing non-finite values (`stat_smooth()`).
+    ## Removed 1 rows containing missing values (`geom_point()`).
 
 ![](stat_analyses_files/figure-gfm/eff_size-4.png)<!-- -->
 
@@ -4093,9 +4208,8 @@ ggsave(filename = "./indirect/figs/effect_correlations.png",
 
     ## `geom_smooth()` using formula = 'y ~ x'
 
-    ## Warning: Removed 1 row containing non-finite outside the scale range (`stat_smooth()`).
-    ## Removed 1 row containing missing values or values outside the scale range
-    ## (`geom_point()`).
+    ## Warning: Removed 1 rows containing non-finite values (`stat_smooth()`).
+    ## Removed 1 rows containing missing values (`geom_point()`).
 
 ``` r
 # Save the plot object
@@ -4321,11 +4435,9 @@ indirect_plot <- plot_grid(
 
     ## `geom_smooth()` using formula = 'y ~ x'
 
-    ## Warning: Removed 1 row containing non-finite outside the scale range
-    ## (`stat_smooth()`).
+    ## Warning: Removed 1 rows containing non-finite values (`stat_smooth()`).
 
-    ## Warning: Removed 1 row containing missing values or values outside the scale range
-    ## (`geom_point()`).
+    ## Warning: Removed 1 rows containing missing values (`geom_point()`).
 
 ``` r
 indirect_plot
@@ -4339,4 +4451,4 @@ ggsave("./indirect/figs/Fig3.png",
 include_graphics("./indirect/figs/Fig3.png")
 ```
 
-![](./indirect/figs/Fig3.png)<!-- -->
+<img src="./indirect/figs/Fig3.png" width="3000" />

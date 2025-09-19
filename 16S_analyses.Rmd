@@ -252,7 +252,7 @@ meta.f$species_tp <- factor(meta.f$species_tp,
 
 ## Add in trait data from indirect experiment (peas only, TP2)
 ### load emmeans
-load(file = "./model_outputs/indirect/emm1.Rda") ## loads emm
+load(file = "./indirect/model_outputs/emm1.Rda") ## loads emm
 
 ### normalize to controls
 emm.controls <- emm %>%
@@ -370,18 +370,6 @@ dat_lessHOST <- subset_taxa(ps, Kingdom=="Bacteria",
 save(dat_lessHOST, file = "./16S_outputs/phyloseq_noHOST.Rda")
 write.csv(t(otu_table(dat_lessHOST)), 
           file="./16S_outputs/otu_table_noHOST.csv")
-
-# rarefy, rarefying to 12000 based on curve
-min_lib <- min(sample_sums(dat_lessHOST))
-rare_ps <- rarefy_even_depth(dat_lessHOST,
-                           sample.size= min_lib,
-                           verbose=FALSE,
-                           replace = FALSE)
-
-save(rare_ps, file = "./16S_outputs/phyloseq_noHOST_rarified.Rda")
-rare_ps.t <- t(otu_table(rare_ps))
-write.csv(rare_ps.t, 
-          file="./16S_outputs/otu_table_noHOST_rarified.csv")
 
 ## remove OTUs less than 1%
 rel_abun_all <- transform_sample_counts(dat_lessHOST, function(x) x/sum(x))
@@ -531,9 +519,24 @@ Interpretation:
   value.
 * Typical range: Starts at 1 (minimum diversity); higher values indicate more diversity.
 
-```{r alpha_div}
+
+### Plots (Fig. 2 - partial)
+
+```{r alpha_div_plot }
 ## load relevant phyloseqs
-load(file = "./16S_outputs/phyloseq_noHOST_rarified.Rda") ## loads rare_ps
+load(file = "./16S_outputs/phyloseq_noHOST.Rda") ## loads dat_lessHOST
+
+# rarefy, rarefying to 12000 based on curve
+min_lib <- min(sample_sums(dat_lessHOST))
+rare_ps <- rarefy_even_depth(dat_lessHOST,
+                           sample.size= min_lib,
+                           verbose=FALSE,
+                           replace = FALSE)
+
+save(rare_ps, file = "./16S_outputs/phyloseq_noHOST_rarified.Rda")
+rare_ps.t <- t(otu_table(rare_ps))
+write.csv(rare_ps.t, 
+          file="./16S_outputs/otu_table_noHOST_rarified.csv")
 
 ## Extract richness metrics to pair with metadata
 richness.df <- estimate_richness(rare_ps, 
@@ -570,6 +573,8 @@ richness.df$spikeFac <- factor(richness.df$Spiking_level,
                                levels = c("US","SL1","SL2"),
                                ordered = TRUE)
 
+save(richness.df, file = "./16S_outputs/richness.Rda")
+
 
 ##### Plots (species, timepoint, treatment) #####
 
@@ -603,11 +608,17 @@ plots <- plot_grid(plots.out[["Shannon"]] +
 
 ### save plots
 plots
-ggsave("./16S_outputs/alpha_div_plots.png",
+ggsave("./16S_outputs/figs/alpha_div_plots.png",
        width=8, height=6, units = "in")
-include_graphics("./16S_outputs/alpha_div_plots.png")
+include_graphics("./16S_outputs/figs/alpha_div_plots.png")
+saveRDS(plots, file = "./16S_outputs/figs/alpha_plot.rds")
+```
 
+### Models: species x amend, species x contam 
+
+```{r alpha_div_mods}
 ##### M1: species x amendment (for ea. timepoint separately) #####
+load(file = "./16S_outputs/richness.Rda") ## loads richness.df
 
 ## set contrasts
 options(contrasts=c("contr.sum","contr.poly")) 
@@ -676,8 +687,11 @@ cont <- lapply(div.out, `[[`, 3) %>%
   bind_rows(.)
 write.csv(cont, "./16S_outputs/models/div_contam_cont.csv",
           row.names = FALSE)
+```
 
-##### Fig. 2: post-hoc tests #####
+### Post-hoc tests (supp fig)
+
+```{r alpha_div_PHT}
 ## figures (contrasts)
 cont <- read_csv("./16S_outputs/div_amend_cont.csv")
 
@@ -818,9 +832,12 @@ plots
 ggsave("./16S_outputs/models/alpha_div_model_plots.png", 
        width = 11, height = 7, 
        units = "in")
+```
 
+### Alpha diversity vs plant traits: peas
 
-##### 3) Alpha diversity vs plant traits: only look at peas #####
+```{r alpha_div_trait_corr}
+load(file = "./16S_outputs/richness.Rda") ## loads richness.df
 
 ### filter to P, make wide
 richness.pea.w_metric <- richness.df %>%
@@ -882,14 +899,14 @@ plots_Simpson <- plot_grid(plots.out[["InvSimpson_TP1"]] +
 
 ### save plots
 plots_Shannon
-ggsave("./16S_outputs/models/Shannon_v_traits_plots.png",
+ggsave("./16S_outputs/figs/Shannon_v_traits_plots.png",
        width=12, height=12, units = "in")
-include_graphics("./16S_outputs/models/Shannon_v_traits_plots.png")
+include_graphics("./16S_outputs/figs/Shannon_v_traits_plots.png")
 
 plots_Simpson
-ggsave("./16S_outputs/models/Simpson_v_traits_plots.png",
+ggsave("./16S_outputs/figs/Simpson_v_traits_plots.png",
        width=12, height=12, units = "in")
-include_graphics("./16S_outputs/models/Simpson_v_traits_plots.png")
+include_graphics("./16S_outputs/figs/Simpson_v_traits_plots.png")
 
 ## linear models to get regression coeffs
 
@@ -942,7 +959,7 @@ data)
 
 Our samples have widely varying sequencing depths. Use rarefied df
 
-```{r PCoA}
+```{r beta_PCoA}
 ## load relevant data
 load(file = "./16S_outputs/phyloseq_noHOST_rarified.Rda") ## loads rare_ps
 ## metadata file
@@ -961,8 +978,8 @@ p1$layers <- p1$layers[-1]
 # To remove the extra jitter layer
 
 p <- p1 +
-  geom_point(aes(colour = treat.rn, shape = timepoint), 
-             size = 5,
+  geom_point(aes(colour = treat.rn, shape = timepoint),
+             size = 3,
              alpha = 0.7) + 
   scale_color_manual(values = c("black",
                                 "brown",
@@ -975,7 +992,7 @@ p <- p1 +
                                 "#EABD8C",
                                 "#FFAD00",
                                 "#B06500")) +
-  # guides(colour = "none", shape = "none") +
+  guides(colour = "none", shape = "none") +
   theme_bw() + 
   theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold"), 
         axis.title.x = element_text(size=14), 
@@ -987,10 +1004,10 @@ p <- p1 +
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank())
 p
-ggsave("./16S_outputs/PCoA_plots_all-data.png",
+ggsave("./16S_outputs/figs/PCoA_plots_all-data.png",
        width = 8, height = 6, units = "in",
        dpi = 400)
-include_graphics("./16S_outputs/PCoA_plots_all-data.png")
+include_graphics("./16S_outputs/figs/PCoA_plots_all-data.png")
 
 #Extract Eigenvalues
 eigenvalues <- RA.ord$values$Eigenvalues
@@ -1015,7 +1032,7 @@ scree_bs <- ggplot(scree_data,
                    aes(x = PrincipalCoordinate)) + 
   geom_line(aes(y = VarianceExplained),
                   color = "blue", 
-                  size = 1, 
+                  linewidth = 1, 
                   linetype = "solid") + 
     geom_line(aes(y = BrokenStickModel), 
               color = "red", 
@@ -1028,19 +1045,19 @@ scree_bs <- ggplot(scree_data,
     theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold"))
 scree_bs
-ggsave("./16S_outputs/scree_plot_all-data.png",
+ggsave("./16S_outputs/figs/scree_plot_all-data.png",
        width = 6, height = 5, units = "in",
        dpi = 400)
-include_graphics("./16S_outputs/scree_plot_all-data.png")
+include_graphics("./16S_outputs/figs/scree_plot_all-data.png")
 
 ## function to compare treatments within each timepoint
-source("./Source_code/beta_plot.func.R")
+source("./Source_code/plot_beta.func.R")
 
 times.list <- rep(c("TP1","TP2"),2)
 metrics.list <- c(rep("PCoA",2),rep("NMDS",2))
 combs.list <- paste0(times.list, "_", metrics.list)
 
-plots.out <- mapply(FUN = beta_plot.func, 
+plots.out <- mapply(FUN = plot_beta.func, 
                       combs = combs.list, 
                       times = times.list, 
                       metrics = metrics.list, 
@@ -1063,11 +1080,11 @@ fig1 <- plot_grid(plots.out[["TP1_PCoA"]][[1]] +
           labels = NULL)
 fig1
 
-ggsave("./16S_outputs/PCoA_plots.png",
+ggsave("./16S_outputs/figs/PCoA_plots.png",
        width = 8, height = 4, units = "in",
        dpi = 400)
-include_graphics("./16S_outputs/PCoA_plots.png")
-
+include_graphics("./16S_outputs/figs/PCoA_plots.png")
+saveRDS(fig1, file = "./16S_outputs/figs/beta_PCoA.rds")
 
 fig2 <- plot_grid(plots.out[["TP1_NMDS"]][[1]] +
                     ggtitle("One week post planting") +
@@ -1081,16 +1098,16 @@ fig2 <- plot_grid(plots.out[["TP1_NMDS"]][[1]] +
           align = "h",
           labels = NULL)
 fig2
-ggsave("./16S_outputs/NMDS_plots.png",
+ggsave("./16S_outputs/figs/NMDS_plots.png",
        width = 8, height = 4, units = "in",
        dpi = 400)
-include_graphics("./16S_outputs/NMDS_plots.png")
+include_graphics("./16S_outputs/figs/NMDS_plots.png")
 
 ```
 
 ### Overlay traits as vectors (peas only, TP2)
 
-```{r trait}
+```{r beta_trait}
 ## load relevant data
 load(file = "./16S_outputs/phyloseq_noHOST_rarified.Rda") ## loads rare_ps
 ## metadata file
@@ -1191,13 +1208,9 @@ nmds_scores$treat <- meta.peas$treat.rn[match(nmds_scores$SampleID,
 nmds_scores$Source <- meta.peas$Source[match(nmds_scores$SampleID, 
                                       meta.peas$Sample_ID)]
 
-selected.traits <- c("response_shoot_root_ratio",
-            "response_dry_root_weight",
-            "response_shoot_moisture")
+selected.traits <- c("response_shoot_root_ratio")
 
-new.names <- c("Shoot to root ratio",
-               "Dry root weight", 
-               "Shoot moisture")
+new.names <- c("Shoot to root ratio")
 
 # Create a copy of the trait names
 vectors$trait.rn <- vectors$Trait
@@ -1254,10 +1267,10 @@ ggplot(data = nmds_scores, aes(x = NMDS1, y = NMDS2)) +
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank()
   )
-ggsave("./16S_outputs/NMDS_trait_vec.png",
+ggsave("./16S_outputs/figs/NMDS_trait_vec.png",
        width = 7, height = 6, units = "in",
        dpi = 400)
-include_graphics("./16S_outputs/NMDS_trait_vec.png")
+include_graphics("./16S_outputs/figs/NMDS_trait_vec.png")
 
 
 ```
@@ -1269,7 +1282,7 @@ distance-based redundancy analysis (db-RDA), and it's particularly useful
 when you want to relate microbiome community structure (based on a distance 
 matrix) to environmental variables.
 
-```{r capscale}
+```{r beta_capscale}
 load(file = "./16S_outputs/phyloseq_noHOST_rarified.Rda") ## loads rare_ps
 ## metadata file
 load(file = "./16S_outputs/metadata_cleaned.Rda") ## loads meta
@@ -1322,13 +1335,13 @@ CS.out <- sapply(times.list,
 CS_all <- lapply(CS.out, `[[`, 1) %>%
   bind_rows(.)
 
-write.csv(CS_all, "./16S_outputs/capscale_analyses.csv",
+write.csv(CS_all, "./16S_outputs/models/capscale_analyses.csv",
           row.names = FALSE)
 ```
 
 ### PERMANOVA
 
-```{r permanova}
+```{r beta_permanova}
 # Microbiome data (e.g., OTU table)
 otu_table <- read.csv("./16S_outputs/otu_table_noHOST_rarified.csv", 
                       row.names = 1)
@@ -1394,9 +1407,30 @@ perm.out <- sapply(times.list,
 perm_all <- lapply(perm.out, `[[`, 1) %>%
   bind_rows(.)
 
-write.csv(perm_all, "./16S_outputs/permanova_analyses.csv",
+write.csv(perm_all, "./16S_outputs/models/permanova_analyses.csv",
           row.names = FALSE)
 
+
+```
+
+## Fig 2: microbiome analyses
+
+```{r fig2_microbiome}
+## stitch together with effect comparisons
+alpha_plot <- readRDS("./16S_outputs/figs/alpha_plot.rds")
+beta_plot <- readRDS("./16S_outputs/figs/beta_PCoA.rds")
+
+micro_plot <- plot_grid(
+  alpha_plot,
+  beta_plot,
+  ncol = 1,
+  nrow = 2,
+  align = "v",
+  rel_heights = c(1,1))
+micro_plot
+ggsave("./16S_outputs/figs/Fig3.png",
+       width=8, height=8, units = "in")
+include_graphics("./indirect/figs/Fig3.png")
 
 ```
 
@@ -1419,7 +1453,7 @@ species (no_plant [GS], lettuce, radish, pea)
 exclude timepoint (TP1)
 exclude amendment treatments (BS, RW)
 
-```{r DEseq2}
+```{r DEseq2, eval = FALSE}
 ## load relevant dataframe (summarized to family level)
 
 ### load OTU table
