@@ -1,0 +1,7 @@
+"trait","Spiking level_RW","Spiking level_BS","sig_contrasts_RW","sig_contrasts_BS"
+"plant_height4","F [2, 6] = 0.0732, p > 0.1","F [2, 6] = 1.1, p > 0.1",NA,NA
+"chlorophyll_content4_mean","F [2, 6] = 0.519, p > 0.1","F [2, 6] = 0.527, p > 0.1",NA,NA
+"leaf_num2","X2 = 0.00926, df = 2, p > 0.1","X2 = 0.706, df = 2, p > 0.1",NA,NA
+"dry_total_weight","F [2, 6] = 0.256, p > 0.1","F [2, 6] = 0.347, p > 0.1",NA,NA
+"shoot_root_ratio","F [2, 6] = 0.668, p > 0.1","F [2, 6] = 12.3, p = 0.00748**",NA,"linear: t = -4.8, df = 6, p = 0.003**; slope = -0.551 [-0.831 to -0.27]"
+"shoot_moisture","F [2, 6] = 0.123, p > 0.1","F [2, 6] = 1.02, p > 0.1",NA,NA

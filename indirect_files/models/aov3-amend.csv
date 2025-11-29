@@ -1,0 +1,7 @@
+"trait","Amendment","sig_contrasts"
+"plant_height4","F [2, 6] = 3.61, p = 0.0935.",NA
+"chlorophyll_content4_mean","F [2, 6] = 0.585, p > 0.1",NA
+"leaf_num2","X2 = 0.141, df = 2, p > 0.1",NA
+"dry_total_weight","F [2, 6] = 0.518, p > 0.1",NA
+"shoot_root_ratio","F [2, 6] = 13.8, p = 0.00565**","RW / control: t = -2.44, df = 6, p = 0.0917.; log2FC [95% CL] = -0.448 [-0.981 to 0.0857] | BS / control: t = 2.82, df = 6, p = 0.0553.; log2FC [95% CL] = 0.519 [-0.0144 to 1.05]"
+"shoot_moisture","F [2, 6] = 0.0209, p > 0.1",NA

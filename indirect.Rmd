@@ -1,0 +1,1601 @@
+---
+title: "Microbially-mediated (i.e., indirect) impacts of amendments and contaminants"
+author: "RTD, II"
+date: "`r Sys.Date()`"
+output: github_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+## set working directory
+setwd("../Agri_Contaminants")
+
+## packages
+library("tidyverse") ## ggplot, stringr, and more
+library("knitr") ## include_graphics function
+library("lme4") ## lmer function
+library("car") ## Anova for type 3 (interactions)
+library("emmeans") ## post-hoc analyses
+library("RColorBrewer") ## colour pallets
+library("cowplot") ## plotgrid function
+library("ggbeeswarm") ## geom_beeswarm package
+library("broom") ## tidy() function
+library("pheatmap") ## plotting correlation matrices
+library("caret") ## findCorrelation func
+```
+
+## Soil slurry experiment
+
+DESCRIPTION
+
+### Load data
+
+```{r load_data}
+indirect <- read_csv("./raw_data/indirect.csv")
+
+## calculate other traits
+indirect$dry_total_weight <- indirect$dry_shoot_weight + 
+  indirect$dry_root_weight
+indirect$shoot_root_ratio <- indirect$dry_shoot_weight / 
+  indirect$dry_root_weight
+indirect$shoot_moisture <- (indirect$wet_shoot_weight - 
+                              indirect$dry_shoot_weight) / 
+  indirect$dry_shoot_weight
+
+## set factors
+
+### relevel treatment
+indirect$treatment <- as.factor(indirect$treatment)
+indirect$treatment <- relevel(indirect$treatment, ref = "Saline Control")
+
+### specify spiking level as an ordered factor
+indirect$spikeFac <- factor(indirect$spiking_level,
+                          levels = c("0","1","2"),
+                          ordered = TRUE)
+
+### rename source to be consistent with direct
+indirect$amend <- factor(indirect$amend,
+                        levels = c("no_treat",
+                                   "saline",
+                                   "control",
+                                   "RW",
+                                   "BS"
+                        ))
+
+### spiking level plus amend
+indirect$amend_spike <- paste0(indirect$amend, 
+                                "-", 
+                                indirect$spiking_level)
+
+### order factor
+indirect$amend_spike <- factor(indirect$amend_spike, 
+                                levels = c("saline-0",
+                                           "no_treat-0",
+                                           "control-0",
+                                           "RW-0",
+                                           "RW-1",
+                                           "RW-2",
+                                           "BS-0",
+                                           "BS-1",
+                                           "BS-2"
+                                          ))
+
+
+## save formatted data file
+save(indirect, file = "./indirect_files/indirect-formatted.Rda")
+
+```
+
+### Trait correlations
+
+Ensuring we are picking traits that are not highly correlated
+
+```{r trait_corrs}
+## loaf formatted data file
+load(file = "./indirect_files/indirect-formatted.Rda") ## loads indirect
+
+## traits to run through
+trait.list <- c(## non-destructive traits prior to harvest
+                "plant_height1", 
+                "plant_height2", 
+                "plant_height3",
+                "chlorophyll_content1_mean",
+                "chlorophyll_content2_mean",
+                "chlorophyll_content3_mean",
+                "leaf_num",
+                ## traits at harvest
+                "plant_height4",
+                "chlorophyll_content4_mean", 
+                "leaf_num2",
+                "wet_shoot_weight", 
+                "dry_shoot_weight",
+                "wet_root_weight", 
+                "dry_root_weight",
+                "dry_total_weight",
+                "shoot_root_ratio",
+                "shoot_moisture")
+
+### select all traits
+indirect_cols_df <- indirect[, trait.list]
+
+## check correlations among traits
+# Select numeric columns
+numeric_cols <- indirect_cols_df %>%
+  select(where(is.numeric))
+
+# Impute missing values with column means
+imputed_df <- numeric_cols %>%
+  mutate(across(where(is.numeric),
+                ~ ifelse(is.na(.), 
+                         mean(., na.rm = TRUE), .)))
+
+# Correlation matrix
+cor_matrix <- cor(imputed_df, use = "pairwise.complete.obs")
+
+# Plot heatmap
+pheatmap(cor_matrix,
+       color = colorRampPalette(c("blue", "white", "red"))(50),
+       display_numbers = TRUE,
+       cluster_rows = TRUE,
+       cluster_cols = TRUE)
+
+## remove highly correlated vars
+
+# Find highly correlated variables
+high_corr <- findCorrelation(cor_matrix, cutoff = 0.7)
+
+# Remove them
+reduced_traits <- numeric_cols[, -high_corr]
+
+selected_traits <- names(reduced_traits)
+## "plant_height1"             "chlorophyll_content1_mean" "chlorophyll_content2_mean"
+## "chlorophyll_content3_mean" "leaf_num"                  "chlorophyll_content4_mean"
+## "leaf_num2"                 "wet_root_weight"           "shoot_root_ratio"         
+## "shoot_moisture"           
+
+# Correlation matrix
+cor_matrix <- cor(reduced_traits, use = "pairwise.complete.obs")
+
+# Plot heatmap
+pheatmap(cor_matrix,
+       color = colorRampPalette(c("blue", "white", "red"))(50),
+       display_numbers = TRUE,
+       cluster_rows = TRUE,
+       cluster_cols = TRUE)
+```
+
+### Models
+
+#### M1: emmeans for each trait and soil slurry
+
+Impact of prior amendment type on pea traits.
+Exclude contaminants
+Include controls (from prior experiment).
+No interactions.
+
+NOTE: recommended by data lunch to calculate the geometric means from the soil
+slurries, then input those in the model
+
+```{r m1-slurry.means}
+## loaf formatted data file
+load(file = "./indirect_files/indirect-formatted.Rda") ## loads indirect
+
+## set contrasts
+options(contrasts=c("contr.sum","contr.poly")) 
+
+## traits to run through
+trait.list <- c(## non-destructive traits prior to harvest
+                "plant_height1", 
+                "plant_height2", 
+                "plant_height3",
+                "chlorophyll_content1_mean",
+                "chlorophyll_content2_mean",
+                "chlorophyll_content3_mean",
+                "leaf_num",
+                ## traits at harvest
+                "plant_height4",
+                "chlorophyll_content4_mean", 
+                "leaf_num2",
+                "wet_shoot_weight", 
+                "dry_shoot_weight",
+                "wet_root_weight", 
+                "dry_root_weight",
+                "dry_total_weight",
+                "shoot_root_ratio",
+                "shoot_moisture")
+
+## source function
+source("./Source_code/mod-indirect_emmeans.func.R")
+
+# Create output directory if it doesn't exist
+## set output directory
+output_dir <- "./indirect_files/models/"
+if (!dir.exists(output_dir)) {
+  dir.create(output_dir, recursive = TRUE)
+}
+
+mod.out <- sapply(trait.list, 
+                   mod_indirect_emms,
+                   df = indirect %>%
+                     filter(treatment != "No treatment"),
+                   simplify = FALSE, 
+                   USE.NAMES = TRUE)
+
+### aovs
+aov <- lapply(mod.out, `[[`, 1) %>%
+  bind_rows(.)
+
+### format
+aov$pval <- ifelse(is.na(aov$`LR Chisq`) == FALSE, 
+                   signif(aov$`Pr(>Chisq)`, 3),
+                   signif(aov$`Pr(>F)`, 3))
+aov$sig <- ifelse(aov$pval< 0.001, ", p < 0.001",
+            ifelse(aov$pval < 0.01, paste0(", p = ", aov$pval, "**"),
+            ifelse(aov$pval < 0.05, paste0(", p = ", aov$pval, "*"),
+            ifelse(aov$pval < 0.1, paste0(", p = ", aov$pval, "."),
+                               ", p > 0.1"))))
+aov$stat <- ifelse(is.na(aov$`LR Chisq`) == FALSE, signif(aov$`LR Chisq`, 3),
+                   signif(aov$`F value`, 3))
+
+## pivot wider for each model term
+aov.w <- aov %>%
+  select(-c(`F value`,"Pr(>F)" ,"pval", "Sum Sq",
+            "Pr(>Chisq)", "LR Chisq")) %>%
+  pivot_wider(
+    names_from = term,
+    values_from = c(stat, Df, sig)
+  ) ## 10 traits total, 10 rows
+
+## formatting
+aov.f <- aov.w %>%
+  mutate(`Soil slurry` =  ifelse(aov.w$trait %in% c("leaf_num", "leaf_num2"),
+                                 paste0("Chisq [", Df_treatment, ", ",
+                                Df_Residuals, "] = ", stat_treatment,
+                                sig_treatment),
+                                 paste0("F [", Df_treatment, ", ",
+                                Df_Residuals, "] = ", stat_treatment,
+                                sig_treatment))
+         ) %>%
+  select(trait, `Soil slurry`)
+
+### CONTRASTS
+cont <- lapply(mod.out, `[[`, 3) %>%
+  bind_rows(.)
+
+## round pval
+cont$pval <- signif(cont$p.value, 3)
+### format
+cont$sig <- ifelse(cont$p.value < 0.001, ", p < 0.001",
+            ifelse(cont$p.value < 0.01, paste0(", p = ", cont$pval, "**"),
+            ifelse(cont$p.value < 0.05, paste0(", p = ", cont$pval, "*"),
+            ifelse(cont$p.value < 0.1, paste0(", p = ", cont$pval, "."),
+                               ", p > 0.1"))))
+## test stats
+cont$stat <- ifelse(is.na(cont$z.ratio) == FALSE, 
+                    paste0("z = ", signif(cont$z.ratio, 3)),
+                     paste0("t = ", signif(cont$t.ratio, 3), 
+                           ", df = , ", cont$df)
+)
+
+## estimates
+cont$log2FC <- log2(cont$ratio)
+cont$LCL <- signif(log2(cont$lower.CL), 3)
+cont$UCL <- signif(log2(cont$upper.CL), 3)
+cont$log2FC_CL <- paste0(signif(cont$log2FC, 3), " [",
+                        cont$LCL," to ",
+                        cont$UCL,"]")
+## save as R data file
+save(cont, file = paste0(output_dir, "cont1-slurry.means.Rdata"))
+
+## save relevant output for table
+cont.s <- cont %>%
+  filter(p.value < 0.1) %>%
+  mutate(
+    contrast_info = paste0(contrast, ": ", 
+                           stat, "; ", 
+                           "log2FC [95% CL] = ", log2FC_CL)
+    ) %>%
+  select(trait, contrast_info) %>%
+  group_by(trait) %>%
+  summarize(
+    sig_contrasts = paste(contrast_info, collapse = " | ")
+    )
+
+## add to anova
+aov.f$sig_contrasts <- cont.s$sig_contrasts[match(aov.f$trait, cont.s$trait)] 
+## save
+write.csv(aov.f, paste0(output_dir, "aov1-slurry.means.csv"), 
+          row.names = FALSE)
+kable(aov.f)
+
+### emmeans
+emm <- lapply(mod.out, `[[`, 2) %>%
+  bind_rows(.)
+
+## format response and rate
+emm$emmean <- ifelse(is.na(emm$response) == TRUE,
+                     emm$rate,
+                     emm$response)
+emm$LCL <- ifelse(is.na(emm$lower.CL) == TRUE,
+                     emm$asymp.LCL,
+                     emm$lower.CL)
+emm$UCL <- ifelse(is.na(emm$upper.CL) == TRUE,
+                     emm$asymp.UCL,
+                     emm$upper.CL)
+emm$stat <- ifelse(is.na(emm$t.ratio) == TRUE,
+                     emm$z.ratio,
+                     emm$t.ratio)
+
+emm.s <- emm %>% ## get rid of extra cols
+  select(-response, -rate, 
+         -lower.CL, -upper.CL, 
+         -asymp.LCL, -asymp.UCL,
+         -t.ratio, -z.ratio)
+
+
+save(emm.s, file = paste0(output_dir, "emm1-slurry.means.Rda"))
+write.csv(emm.s, paste0(output_dir, "emm1-slurry.means.csv"), 
+          row.names = FALSE)
+```
+
+#### M2: Examine non-destructive traits over time
+
+```{r m2-treat.vs.time}
+## load emmeans
+load(file = "./indirect_files/models/emm1-slurry.means.Rda") ## loads emm.s
+
+## select cols to analyze
+trait.list <- c("plant_height1", "plant_height2", 
+                "plant_height3", "plant_height4",
+                "chlorophyll_content1_mean",
+                "chlorophyll_content2_mean",
+                "chlorophyll_content3_mean",
+                "chlorophyll_content4_mean",
+                "leaf_num",
+                "leaf_num2")
+
+## create long df
+emm.f <- emm.s %>%
+  filter(trait %in% trait.list &
+           !amend %in% c("no_treat",
+                         "saline")) %>% ## removed controls
+  droplevels(.)
+## 21 samples x 10 traits = 210
+
+## pull out weeks
+emm.f$week <- str_extract(emm.f$trait, "\\d+\\.?\\d*")
+
+## add in week for leaf num
+emm.f$week <- ifelse(is.na(emm.f$week) == TRUE,
+                          1,
+                          emm.f$week)
+
+## treat week as an ordered factor
+emm.f$weekFac <- factor(emm.f$week,
+                             levels = c("1","2","3","4"),
+                             ordered = TRUE)
+
+## treat week as an integer
+emm.f$week <- as.integer(emm.f$week)
+
+## remove numbers from traits
+emm.f$trait <- str_replace_all(emm.f$trait,
+                                    "\\d+\\.?\\d*", "")
+### three traits: "plant_height", chlorophyll_content_mean", "leaf_num"
+
+## relativize treatments to controls (within each week)
+emm.controls <- emm.f %>%
+  filter(amend_spike == "control-0") %>%
+  group_by(trait, weekFac) %>%
+  summarize(mean_control = mean(emmean, na.rm = TRUE)) %>%
+  ungroup(.)
+
+## add in control means to long df
+emm.f <- emm.f %>%
+  left_join(
+    emm.controls,
+    by = c("trait","weekFac")
+  ) %>%
+  mutate(emmean.r = log2(emmean/mean_control))
+
+## summarize for each treatment
+emm.f.sum <- emm.f %>%
+  group_by(trait, weekFac, amend_spike) %>%
+  summarize(mean = mean(emmean, na.rm = TRUE),
+            count = n(),
+            SE = sd(emmean, na.rm = TRUE)/sqrt(count))
+
+## formatting for plot
+
+trait_labs <- c(
+  chlorophyll_content_mean = "Leaf chlorophyll A",
+  leaf_num = "Leaves (no.)",
+  plant_height = "Plant height (cm)"
+)
+
+## plot traits over time
+plot <- ggplot(emm.f.sum,
+       aes(x = weekFac, y = mean)) +
+  geom_pointrange(aes(
+    ymin = mean - SE,
+    ymax = mean + SE,
+    colour = amend_spike),
+    position = position_dodge(0.3)) +
+  geom_line(
+    aes(group = amend_spike,
+        colour = amend_spike),
+    position = position_dodge(0.3)) +
+  facet_wrap(~trait, scales = "free",
+             labeller = 
+                 labeller(trait = trait_labs)) +
+  scale_color_manual(values = c(  "gray",
+                                  "lightblue",
+                                  "cornflowerblue",
+                                  "blue",
+                                  "#EABD8C",
+                                  "#FFAD00",
+                                  "#B06500"),
+                     guide = guide_legend(nrow = 1)) +
+  labs(y = "Means +/- 1 SE",
+       x = "Weeks post planting",
+       colour = "Amendment- \n contaminant level") +
+  guides(shape = "none") +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 16),
+          axis.text.x = element_text(size = 14),
+          axis.title.y = element_text(size = 16),
+          axis.text.y = element_text(size = 14),
+          strip.text = element_text(size = 14, face = "bold"),
+          legend.position = "bottom",
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank())
+plot
+## save plot
+ggsave("./indirect_files/figs/traits_vs_time.png", 
+       width = 9, height = 3, 
+       units = "in")
+
+## save just for plant height
+## plot traits over time
+plot <- ggplot(emm.f.sum %>%
+                 filter(trait == "plant_height"),
+       aes(x = weekFac, y = mean)) +
+  geom_pointrange(aes(
+    ymin = mean - SE,
+    ymax = mean + SE,
+    colour = amend_spike),
+    position = position_dodge(0.3)) +
+  geom_line(
+    aes(group = amend_spike,
+        colour = amend_spike),
+    position = position_dodge(0.3)) +
+  facet_wrap(~trait, scales = "free",
+             labeller = 
+                 labeller(trait = trait_labs)) +
+  scale_color_manual(values = c(  "gray",
+                                  "lightblue",
+                                  "cornflowerblue",
+                                  "blue",
+                                  "#EABD8C",
+                                  "#FFAD00",
+                                  "#B06500"),
+                     guide = guide_legend(nrow = 1)) +
+  labs(y = "Means +/- 1 SE",
+       x = "Weeks post planting",
+       colour = "Amendment- \n contaminant level") +
+  guides(shape = "none") +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 16),
+          axis.text.x = element_text(size = 14),
+          axis.title.y = element_text(size = 16),
+          axis.text.y = element_text(size = 14),
+          strip.text = element_text(size = 14, face = "bold"),
+          legend.position = "bottom",
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank())
+plot
+# Save the plot object
+saveRDS(plot, file = "./indirect_files/figs/height_vs_time.rds")
+
+##### m2-treat.vs.time #####
+
+## set contrasts
+options(contrasts=c("contr.sum","contr.poly")) 
+
+# Create output directory if it doesn't exist
+## set output directory
+output_dir <- "./indirect_files/models/"
+if (!dir.exists(output_dir)) {
+  dir.create(output_dir, recursive = TRUE)
+}
+
+
+## create directory
+dir.create(file.path(output_dir, "resfits_plots/m2-treat.vs.time/"), 
+           recursive = TRUE, 
+           showWarnings = FALSE)
+
+## traits
+trait.list <- unique(emm.f$trait)
+
+## 1)  species x amendment (for each timepoint sep)
+source("./Source_code/mod-indirect_treat.v.time.func.R")
+
+## run function
+mod.out <- sapply(trait.list, 
+                   mod_treat.v.time,
+                   df = emm.f,
+                   simplify = FALSE, 
+                   USE.NAMES = TRUE)
+
+## save models
+aov <- lapply(mod.out, `[[`, 1) %>%
+  bind_rows(.)
+
+### format
+aov$pval <- signif(aov$`Pr(>F)`, 3)
+aov$sig <- ifelse(aov$pval< 0.001, ", p < 0.001",
+            ifelse(aov$pval < 0.01, paste0(", p = ", aov$pval, "**"),
+            ifelse(aov$pval < 0.05, paste0(", p = ", aov$pval, "*"),
+            ifelse(aov$pval < 0.1, paste0(", p = ", aov$pval, "."),
+                               ", p > 0.1"))))
+aov$stat <- signif(aov$`F value`, 3)
+
+## pivot wider for each model term
+aov.w <- aov %>%
+  select(-c(`F value`,"Pr(>F)","pval", "Sum Sq")) %>%
+  pivot_wider(
+    names_from = term,
+    values_from = c(stat, Df, sig)
+  ) ## 3 traits total, 3 rows
+
+## formatting
+aov.f <- aov.w %>%
+  mutate(Treatment = paste0("F [", Df_amend_spike, ", ",
+                                Df_Residuals, "] = ", stat_amend_spike,
+                                sig_amend_spike),
+         Week = paste0("F [", Df_weekFac, ", ",
+                           Df_Residuals, "] = ", stat_weekFac,
+                           sig_weekFac),
+         `Treatment x Week` = 
+                             paste0("F [", 
+                               `Df_amend_spike:weekFac`, ", ",
+                                Df_Residuals, "] = ",
+                               `stat_amend_spike:weekFac`,
+                               `sig_amend_spike:weekFac`)
+         ) %>%
+  select(trait, Treatment, Week, `Treatment x Week`)
+
+### CONTRASTS
+cont <- lapply(mod.out, `[[`, 3) %>%
+  bind_rows(.)
+
+## round pval
+cont$pval <- signif(cont$p.value, 3)
+### format
+cont$sig <- ifelse(cont$p.value < 0.001, ", p < 0.001",
+            ifelse(cont$p.value < 0.01, paste0(", p = ", cont$pval, "**"),
+            ifelse(cont$p.value < 0.05, paste0(", p = ", cont$pval, "*"),
+            ifelse(cont$p.value < 0.1, paste0(", p = ", cont$pval, "."),
+                               ", p > 0.1"))))
+## test stats
+cont$stat <- signif(cont$t.ratio, 3)
+
+cont$stat.f <- paste0("t = ", cont$stat, ", ", 
+                    "df = ", cont$df,
+                    cont$sig)
+## estimates
+cont$log2FC <- log2(cont$ratio)
+cont$LCL <-signif(log2(cont$lower.CL), 3)
+cont$UCL <- signif(log2(cont$upper.CL), 3)
+cont$log2FC_CL <- paste0(signif(cont$log2FC, 3), " [",
+                        cont$LCL," to ",
+                        cont$UCL,"]")
+## save as R data file
+save(cont, file = paste0(output_dir, "cont2-treat.vs.time.Rdata"))
+
+## save relevant output for table
+cont.s <- cont %>%
+  filter(p.value < 0.1) %>%
+  mutate(
+    contrast_info = paste0(contrast, ": ", 
+                           stat.f, "; ", 
+                           "log2FC [95% CL] = ", log2FC_CL)
+    ) %>%
+  select(trait, contrast_info) %>%
+  group_by(trait) %>%
+  summarize(
+    sig_contrasts = paste(contrast_info, collapse = " | ")
+    )
+
+## add to anova
+aov.f <- left_join(aov.f, cont.s, by = c("trait")) 
+
+### CONTRASTS
+cont <- lapply(mod.out, `[[`, 4) %>%
+  bind_rows(.)
+
+## round pval
+cont$pval <- signif(cont$p.value, 3)
+### format
+cont$sig <- ifelse(cont$p.value < 0.001, ", p < 0.001",
+            ifelse(cont$p.value < 0.01, paste0(", p = ", cont$pval, "**"),
+            ifelse(cont$p.value < 0.05, paste0(", p = ", cont$pval, "*"),
+            ifelse(cont$p.value < 0.1, paste0(", p = ", cont$pval, "."),
+                               ", p > 0.1"))))
+## test stats
+cont$stat <- signif(cont$t.ratio, 3)
+
+cont$stat.f <- paste0("t = ", cont$stat, ", ", 
+                    "df = ", cont$df,
+                    cont$sig)
+## estimates
+cont$Est <- signif(cont$estimate,3)
+cont$LCL <-signif(cont$lower.CL, 3)
+cont$UCL <- signif(cont$upper.CL, 3)
+cont$Est_CL <- paste0(signif(cont$Est, 3), " [",
+                        cont$LCL," to ",
+                        cont$UCL,"]")
+## save as R data file
+save(cont, file = paste0(output_dir, "cont2-treat.vs.time-poly.Rdata"))
+
+## save relevant output for table
+cont.s <- cont %>%
+  filter(p.value < 0.1 & contrast == "linear") %>%
+  mutate(
+    contrast_info = paste0(amend_spike, "_", 
+                           contrast, ": ", 
+                           stat.f, "; ", 
+                           "linear est. [95% CL] = ", Est_CL)
+    ) %>%
+  select(trait, contrast_info) %>%
+  group_by(trait) %>%
+  summarize(
+    sig_contrasts = paste(contrast_info, collapse = " | ")
+    )
+
+## add to anova
+aov.f <- left_join(aov.f, cont.s, by = c("trait")) 
+
+## save
+write.csv(aov.f, file = paste0(output_dir, "aov2-treat.vs.time.csv"), 
+          row.names = FALSE)
+kable(aov.f)
+```
+
+#### M3: impact of prior amendment type on traits
+
+```{r m3-amend}
+## load emmeans
+load(file = "./indirect_files/models/emm1-slurry.means.Rda") ## loads emm.s
+
+## set contrasts
+options(contrasts=c("contr.sum","contr.poly")) 
+
+## source function
+source("./Source_code/mod-indirect_amend.func.R")
+
+## traits measured at harvest
+trait.list <- c("plant_height4",
+                "chlorophyll_content4_mean", 
+                "leaf_num2",
+                "dry_total_weight",
+                "shoot_root_ratio",
+                "shoot_moisture")
+
+# Create output directory if it doesn't exist
+## set output directory
+output_dir <- "./indirect_files/models/"
+if (!dir.exists(output_dir)) {
+  dir.create(output_dir, recursive = TRUE)
+}
+
+## run 
+mod.out <- sapply(trait.list, 
+                   mod_amend,
+                   df = emm.s %>%
+                         filter(!amend %in% 
+                                  c("no_treat","saline") &
+                                  spikeFac == "0") %>%
+                         droplevels(.),
+                   simplify = FALSE, 
+                   USE.NAMES = TRUE)
+
+## combine dfs
+### ANOVAs
+aov <- lapply(mod.out, `[[`, 1) %>%
+  bind_rows(.)
+
+### format
+aov$pval <- ifelse(is.na(aov$`Pr(>F)`) == FALSE,
+                   signif(aov$`Pr(>F)`, 3),
+                   signif(aov$`Pr(>Chisq)`, 3))
+aov$sig <- ifelse(aov$pval< 0.001, ", p < 0.001",
+            ifelse(aov$pval < 0.01, paste0(", p = ", aov$pval, "**"),
+            ifelse(aov$pval < 0.05, paste0(", p = ", aov$pval, "*"),
+            ifelse(aov$pval < 0.1, paste0(", p = ", aov$pval, "."),
+                               ", p > 0.1"))))
+aov$stat <- ifelse(is.na(aov$`F value`) == FALSE,
+                        signif(aov$`F value`, 3),
+                        signif(aov$`LR Chisq`, 3))
+
+## pivot wider for each model term
+aov.w <- aov %>%
+  select(-c(`F value`,"Pr(>F)", "LR Chisq", 
+            "Pr(>Chisq)","pval", "Sum Sq")) %>%
+  pivot_wider(
+    names_from = term,
+    values_from = c(stat, Df, sig)
+  ) ## 10 traits total, 10 rows
+
+## formatting
+aov.f <- aov.w %>%
+  mutate(Amendment =  ifelse(trait %in% c("leaf_num2"),
+                         paste0("X2 = ", stat_amend, 
+                                ", df = ", Df_amend,
+                                sig_amend),
+                         paste0("F [", Df_amend, ", ",
+                                Df_Residuals, "] = ", stat_amend,
+                                sig_amend))
+         ) %>%
+  select(trait, Amendment)
+
+### CONTRASTS
+cont <- lapply(mod.out, `[[`, 3) %>%
+  bind_rows(.)
+
+## round pval
+cont$pval <- signif(cont$p.value, 3)
+### format
+cont$sig <- ifelse(cont$p.value < 0.001, ", p < 0.001",
+            ifelse(cont$p.value < 0.01, paste0(", p = ", cont$pval, "**"),
+            ifelse(cont$p.value < 0.05, paste0(", p = ", cont$pval, "*"),
+            ifelse(cont$p.value < 0.1, paste0(", p = ", cont$pval, "."),
+                               ", p > 0.1"))))
+## test stats
+cont$stat <- ifelse(is.na(cont$t.ratio) == FALSE,
+                        signif(cont$t.ratio, 3),
+                        signif(cont$z.ratio, 3))
+
+cont$stat.f <- ifelse(cont$trait %in% c("leaf_num2"),
+                      paste0("z = ", cont$stat,
+                    cont$sig),
+                    paste0("t = ", cont$stat, ", ", 
+                    "df = ", cont$df,
+                    cont$sig)
+)
+## estimates
+cont$log2FC <- log2(cont$ratio)
+cont$LCL <- ifelse(is.na(cont$lower.CL) == TRUE,
+                   signif(log2(cont$asymp.LCL), 3),
+                   signif(log2(cont$lower.CL), 3))
+cont$UCL <- ifelse(is.na(cont$upper.CL) == TRUE,
+                   signif(log2(cont$asymp.UCL), 3),
+                   signif(log2(cont$upper.CL), 3))
+cont$log2FC_CL <- paste0(signif(cont$log2FC, 3), " [",
+                        cont$LCL," to ",
+                        cont$UCL,"]")
+## save as R data file
+save(cont, file = paste0(output_dir, "cont3-amend.Rdata"))
+
+## save relevant output for table
+cont.s <- cont %>%
+  filter(p.value < 0.1) %>%
+  mutate(
+    contrast_info = paste0(contrast, ": ", 
+                           stat.f, "; ", 
+                           "log2FC [95% CL] = ", log2FC_CL)
+    ) %>%
+  select(trait, contrast_info) %>%
+  group_by(trait) %>%
+  summarize(
+    sig_contrasts = paste(contrast_info, collapse = " | ")
+    )
+
+## add to anova
+aov.f$sig_contrasts <- cont.s$sig_contrasts[match(aov.f$trait, cont.s$trait)] 
+## save
+write.csv(aov.f, file = paste0(output_dir, "aov3-amend.csv"), 
+          row.names = FALSE)
+kable(aov.f)
+
+### emmeans
+emm <- lapply(mod.out, `[[`, 2) %>%
+  bind_rows(.)
+write.csv(emm, file = paste0(output_dir, "emm3-amend.csv"), 
+          row.names = FALSE)
+```
+
+#### M4: impact of prior contaminant level
+
+```{r m4-contam}
+## load emmeans
+load(file = "./indirect_files/models/emm1-slurry.means.Rda") ## loads emm.s
+
+## set contrasts
+options(contrasts=c("contr.sum","contr.poly")) 
+
+## traits measured at harvest
+trait.list <- c("plant_height4",
+                "chlorophyll_content4_mean", 
+                "leaf_num2",
+                "dry_total_weight",
+                "shoot_root_ratio",
+                "shoot_moisture")
+
+## create list of traits/amends to loop through:
+amend.list <- c("RW","BS")
+comb_df <- expand_grid(traits = trait.list,
+                       amends = amend.list)
+## Combine into a single string
+comb_df <- comb_df %>%
+  mutate(
+    combs = paste(traits, amends, sep = "_")
+  )
+
+## source function
+source("./Source_code/mod-indirect_contam.func.R")
+
+# Create output directory if it doesn't exist
+## set output directory
+output_dir <- "./indirect_files/models/"
+if (!dir.exists(output_dir)) {
+  dir.create(output_dir, recursive = TRUE)
+}
+
+## run model
+mod.out <- mapply(FUN = mod_contam, 
+                      combs = comb_df$combs, 
+                      traits = comb_df$traits, 
+                      amends = comb_df$amends, 
+                      USE.NAMES = TRUE, 
+                      SIMPLIFY = FALSE,
+                      MoreArgs = list(df = emm.s)
+                   )
+
+## combine dfs
+### ANOVAs
+aov <- lapply(mod.out, `[[`, 1) %>%
+  bind_rows(.)
+
+### format
+aov$pval <- ifelse(is.na(aov$`Pr(>F)`) == FALSE,
+                   signif(aov$`Pr(>F)`, 3),
+                   signif(aov$`Pr(>Chisq)`, 3))
+aov$sig <- ifelse(aov$pval< 0.001, ", p < 0.001",
+            ifelse(aov$pval < 0.01, paste0(", p = ", aov$pval, "**"),
+            ifelse(aov$pval < 0.05, paste0(", p = ", aov$pval, "*"),
+            ifelse(aov$pval < 0.1, paste0(", p = ", aov$pval, "."),
+                               ", p > 0.1"))))
+aov$stat <- ifelse(is.na(aov$`F value`) == FALSE,
+                        signif(aov$`F value`, 3),
+                        signif(aov$`LR Chisq`, 3))
+
+## pivot wider for each model term
+aov.w <- aov %>%
+  select(-c(`F value`,"Pr(>F)", "LR Chisq", 
+            "Pr(>Chisq)","pval", "Sum Sq")) %>%
+  pivot_wider(
+    names_from = term,
+    values_from = c(stat, Df, sig)
+  ) ## 10 traits total, 2 amendments, 20 rows total
+
+## formatting
+aov.f <- aov.w %>%
+  mutate(`Spiking level` =  ifelse(trait %in% c("leaf_num2"),
+                         paste0("X2 = ", stat_spikeFac, 
+                                ", df = ", Df_spikeFac,
+                                sig_spikeFac),
+                         paste0("F [", Df_spikeFac, ", ",
+                                Df_Residuals, "] = ", stat_spikeFac,
+                                sig_spikeFac))
+         ) %>%
+  select(trait, Amendment = amend, `Spiking level`)
+
+### CONTRASTS
+cont <- lapply(mod.out, `[[`, 3) %>%
+  bind_rows(.)
+
+## round pval
+cont$pval <- signif(cont$p.value, 3)
+### format
+cont$sig <- ifelse(cont$p.value < 0.001, ", p < 0.001",
+            ifelse(cont$p.value < 0.01, paste0(", p = ", cont$pval, "**"),
+            ifelse(cont$p.value < 0.05, paste0(", p = ", cont$pval, "*"),
+            ifelse(cont$p.value < 0.1, paste0(", p = ", cont$pval, "."),
+                               ", p > 0.1"))))
+
+## test stats
+cont$stat <- ifelse(is.na(cont$t.ratio) == FALSE,
+                        signif(cont$t.ratio, 3),
+                        signif(cont$z.ratio, 3))
+
+cont$stat.f <- ifelse(cont$trait %in% c("pods","flowers"),
+                      paste0("z = ", cont$stat,
+                    cont$sig),
+                    paste0("t = ", cont$stat, ", ", 
+                    "df = ", cont$df,
+                    cont$sig)
+)
+## estimates
+cont$Est_r <- signif(cont$estimate, 3)
+cont$LCL <- ifelse(is.na(cont$lower.CL) == TRUE,
+                   signif(cont$asymp.LCL, 3),
+                   signif(cont$lower.CL, 3))
+cont$UCL <- ifelse(is.na(cont$upper.CL) == TRUE,
+                   signif(cont$asymp.UCL, 3),
+                   signif(cont$upper.CL, 3))
+cont$Est_CL <- paste0("slope = ", signif(cont$Est_r, 3), " [",
+                        cont$LCL," to ",
+                        cont$UCL,"]")
+## save as R data file
+save(cont, file = paste0(output_dir, "cont4-contam.Rdata"))
+
+## save relevant output for table
+cont.s <- cont %>%
+  filter(p.value < 0.1) %>%
+  mutate(
+    contrast_info = paste0(contrast, ": ", 
+                           stat.f, "; ",
+                           Est_CL)
+    ) %>%
+  select(trait, Amendment = amend, contrast_info) %>%
+  group_by(trait, Amendment) %>%
+  summarize(
+    sig_contrasts = paste(contrast_info, collapse = " | ")
+    )
+
+## add to anova
+aov.f <- left_join(aov.f, cont.s, by = c("trait","Amendment")) %>%
+  pivot_wider(
+    names_from = Amendment,
+    values_from = c(`Spiking level`, `sig_contrasts`)
+  )
+## save
+write.csv(aov.f, file = paste0(output_dir, "aov4-contam.csv"), 
+          row.names = FALSE)
+kable(aov.f)
+
+### emmeans
+emm <- lapply(mod.out, `[[`, 2) %>%
+  bind_rows(.)
+write.csv(emm, file = paste0(output_dir, "emm4-contam.csv"), 
+          row.names = FALSE)
+```
+
+#### M5: comparing effect sizes for direct and indirect 
+
+##### center and scale traits
+
+```{r center_scale}
+## load raw data
+load(file = "./direct_files/direct-formatted.Rda") ## loads direct
+
+## create pot ID (to merge with indirect afterwards)
+direct$pot_ID <- as.character(direct$sample_ID)
+
+### traits to run through
+trait.list <- c(
+                "shoot_root_ratio",
+                "dry_total_weight",
+                "per_plant_weight",
+                "shoot_moisture",
+                "germination_perc",
+                "survival_perc.corr",
+                ### pea specific
+                "dry_pod_weight.corr",
+                "per_pod_weight",
+                "infected_peas_perc.corr",
+                ## "NDVI_mean", too few measured
+                "pods",
+                "flowers"
+                )
+
+# Replace NAs with 0 in selected columns for the row with matching pot_ID
+target_pot <- "48" ## pea in BS-2 
+direct <- direct %>% 
+  mutate(across(all_of(trait.list),
+                ~ ifelse(pot_ID == target_pot & is.na(.), 0, .)))
+target_pot <- "46"
+direct <- direct %>% ## pea in BS-2
+  mutate(across(all_of(trait.list),
+                ~ ifelse(pot_ID == target_pot & is.na(.), 0, .)))
+
+## center & scale traits 
+direct.s <- direct %>%
+  group_by(species) %>%
+  mutate(across(all_of(trait.list), ~ scale(.)[,1], .names = "direct.{.col}")) %>%
+  select(species, spikeFac, amend, amend_spike, pot_ID, contains("direct")) %>%
+  ungroup(.)
+  
+
+## Add in trait data from indirect experiment (peas only, TP2)
+## load emmeans
+load(file = "./indirect_files/models/emm1-slurry.means.Rda") ## loads emm.s
+
+### pivot wider
+emm.w <- emm.s %>%
+  pivot_wider(
+    names_from = trait,
+    values_from = emmean,
+    id_cols = treatment
+  )
+
+### change treatment to pot_ID for merging with meta
+emm.w$treatment <- as.character(emm.w$treatment)
+### need to add the dash between pot number and treatment (to merge with meta)
+emm.w <- emm.w %>%
+  mutate(
+    pot_ID = as.character(str_extract(treatment, "\\d+")))
+
+## center & scale traits 
+emm.s <- emm.w %>%
+  mutate(across(where(is.numeric),
+                ~ scale(.)[,1], 
+                .names = "indirect.{.col}")) %>%
+  select(contains("indirect"), pot_ID)
+  
+### merge with direct
+direct.w <- direct.s %>%
+  left_join(
+    emm.s, by = c("pot_ID")
+  )
+
+## save combined data frame
+save(direct.w, file = "./direct_indirect-combined.Rda")
+```
+
+##### correlations
+
+```{r m5_direct.vs.indirect}
+load(file = "./direct_indirect-combined.Rda") ## loads direct.w
+
+### filter direct to just peas
+direct.p <- direct.w %>%
+  filter(species == "pea") %>%
+  droplevels(.)
+
+# Identify relevant columns
+direct_cols <- grep("^direct", names(direct.p), value = TRUE)
+indirect_cols <- grep("^indirect", names(direct.p), value = TRUE)
+
+# Initialize lists
+results <- list()
+quadrant_data_list <- list()
+
+# Create output directory if it doesn't exist
+## set output directory
+output_dir <- "./indirect_files/figs/"
+if (!dir.exists(output_dir)) {
+  dir.create(output_dir, recursive = TRUE)
+}
+
+# Loop through all combinations
+for (d in direct_cols) {
+  for (i in indirect_cols) {
+    
+    # Create output directory if it doesn't exist
+      ## set output directory
+      output_dir2 <- paste0(output_dir, "corr_plots/")
+      if (!dir.exists(output_dir2)) {
+        dir.create(output_dir2, recursive = TRUE)
+      }
+      
+    # Prepare data
+    plot_df <- direct.p %>%
+      select(all_of(c(d, i, "amend_spike"))) %>%
+      rename(direct = !!d, indirect = !!i, 
+             treatment = amend_spike)
+
+    # Linear model and correlation
+    model <- lm(indirect ~ direct, data = plot_df)
+    tidy_model <- tidy(model)
+    r_squared <- summary(model)$r.squared
+    corr <- cor.test(plot_df$direct, plot_df$indirect)
+
+    # Save regression results
+    results[[paste(d, i, sep = "_vs_")]] <- data.frame(
+      Direct = d,
+      Indirect = i,
+      R_squared = r_squared,
+      P_value_regression = tidy_model$p.value[2],
+      Pearson_corr = corr$estimate,
+      P_value_correlation = corr$p.value
+    )
+
+    # Plot correlation
+    if (corr$p.value < 0.1){
+      p <- ggplot(plot_df, aes(x = direct, y = indirect)) +
+         geom_hline(aes(yintercept = 0), linetype = 2) +
+         geom_vline(aes(xintercept = 0), linetype = 2) +
+        geom_point(alpha = 0.6, aes(colour = treatment)) +
+        geom_smooth(method = "lm", se = TRUE, color = "blue") +
+        labs(title = paste("Correlation:", d, "vs", i),
+             subtitle = paste0("R² = ", round(r_squared, 3),
+                               ", r = ", round(corr$estimate, 3),
+                               ", p = ", signif(corr$p.value, 3))) +
+        scale_color_manual(values = c("gray",
+                                  "lightblue",
+                                  "cornflowerblue",
+                                  "blue",
+                                  "#EABD8C",
+                                  "#FFAD00",
+                                  "#B06500")) +
+        theme_minimal()
+      ## save
+      ggsave(filename = 
+               paste0(output_dir2, d, "_vs_", i, ".png"),
+             plot = p, width = 6, height = 4)
+    }
+    
+    # Quadrant classification
+    plot_df <- plot_df %>%
+      mutate(quadrant = case_when(
+        direct > 0 & indirect > 0 ~ "D+/I+",
+        direct <  0 & indirect > 0 ~ "D-/I+",
+        direct <  0 & indirect <  0 ~ "D-/I-",
+        direct > 0 & indirect <  0 ~ "D+/I-"
+      ))
+
+    # Count and calculate proportions
+    quadrant_summary <- plot_df %>%
+      filter(!is.na(quadrant)) %>%
+      count(quadrant) %>%
+      mutate(proportion = n / sum(n)) %>%
+      ungroup() %>%
+      mutate(pair = paste(d, "vs", i))
+
+    quadrant_data_list[[paste(d, i, sep = "_")]] <- quadrant_summary
+  }
+}
+
+# Combine results
+results_df <- bind_rows(results)
+
+# visualize Pearson correlations as a heatmap
+heatmap_data <- results_df %>%
+  select(Direct, Indirect, Pearson_corr) %>%
+  pivot_wider(names_from = Indirect, values_from = Pearson_corr)
+
+heatmap_matrix <- as.matrix(heatmap_data[,-1])
+rownames(heatmap_matrix) <- heatmap_data$Direct
+
+# Plot heatmap
+p <- pheatmap(t(heatmap_matrix),
+         display_numbers = TRUE,
+         color = colorRampPalette(c("blue", "white", "red"))(100),
+         breaks = seq(-1, 1, length.out = 101),  # Ensures white is at 0
+         main = "Pearson Correlation Heatmap",
+         fontsize_row = 14,
+         fontsize_col = 14,
+         fontsize_number = 12)
+ggsave(paste0(output_dir, "./corr_plots/corr_heatmap.png"), 
+       plot = p,
+    width = 12, height = 10, dpi = 400)
+
+## combine quadrant data
+quadrant_data <- bind_rows(quadrant_data_list)
+
+# Plot quadrant proportions as bar plots (only for select traits)
+
+# Separate 'pair' into 'Direct' and 'Indirect' traits
+quadrant_data_split <- quadrant_data %>%
+  separate(pair, into = c("Direct", "Indirect"), sep = " vs ") 
+
+quadrant_data_split <- quadrant_data_split %>%
+  rowwise() %>%
+  mutate(
+    Indirect = str_remove(Indirect, "^direct\\.|^indirect\\."),
+    Direct = str_remove(Direct, "^direct\\.|^indirect\\.")
+    )
+
+# Filter for partial matches between Direct and Indirect
+filtered_quadrant_data <- quadrant_data_split %>%
+  filter(str_detect(Direct, regex(Indirect, ignore_case = TRUE)) |
+         str_detect(Indirect, regex(Direct, ignore_case = TRUE)))
+
+
+filtered_quadrant_data$quadrant <- 
+  factor(filtered_quadrant_data$quadrant,
+         levels = c("D+/I+","D+/I-","D-/I+","D-/I-"))
+
+
+# Assign colors to levels
+colors <- c("D-/I-" = "purple", 
+            "D-/I+" = "blue", 
+            "D+/I-" = "orange",
+            "D+/I+" = "red")
+
+
+# Define new labels
+new_labels <- c("wet_shoot_weight" = "Wet shoot weight",
+                "wet_root_weight" = "Wet root weight",
+                "dry_shoot_weight" = "Dry shoot weight",
+                "dry_total_weight" = "Dry total weight",
+                "dry_root_weight" = "Dry root weight",
+                "shoot_root_ratio" = "Shoot to root ratio",
+                "shoot_moisture" = "Shoot moisture")
+
+
+## plot
+eff_plot <- ggplot(filtered_quadrant_data, aes(x = Direct, 
+                                   y = proportion,
+                                   fill = quadrant)) +
+  geom_bar(stat = "identity") +
+  geom_hline(aes(yintercept = 0.5), linetype = 2) +
+  scale_fill_manual(
+    values = colors) +
+  scale_x_discrete(labels = new_labels) +
+  labs(x = "Trait", y = "Proportion", fill = "Effect direction") +
+  coord_flip() +
+  theme_minimal() +
+  theme(axis.title.y = element_text(size = 16),
+        axis.title.x = element_text(size = 16),
+        panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank())
+eff_plot
+ggsave(filename = paste0(output_dir, "effect_directions.png"),
+       width = 6, height = 3, units = "in")
+# Save the plot object
+saveRDS(eff_plot, file = paste0(output_dir, "eff_plot.rds"))
+
+## extract correlation results
+corr_res <- results_df %>%
+  filter(P_value_correlation < 0.1) %>%
+  droplevels(.)
+  
+## correlation plot
+corr_plot <- ggplot(direct.p, aes(x = direct.dry_total_weight, 
+           y = indirect.chlorophyll_content1_mean, 
+           colour = amend_spike)) +
+      geom_smooth(method = "lm", se = FALSE, color = "black",
+                  linetype = 2) +
+      geom_hline(aes(yintercept = 0), linetype = 2) +
+      geom_vline(aes(xintercept = 0), linetype = 2) +
+      geom_point(size = 3) +
+      scale_color_manual(values = c("gray",
+                                  "lightblue",
+                                  "cornflowerblue",
+                                  "blue",
+                                  "#EABD8C",
+                                  "#FFAD00",
+                                  "#B06500"),
+                         guide = guide_legend(nrow = 2)) +
+      labs(y = "Indirect (Leaf chlorophyll A)",
+           x = "Direct (Dry total biomass)",
+           color = "Amendment - \n Spiking level",
+        subtitle = paste0(
+  "R² = ", 
+  round(corr_res$R_squared[corr_res$Direct == 
+                        "direct.dry_total_weight"],3),
+  ", r = ", 
+  round(corr_res$Pearson_corr[corr_res$Direct == 
+                        "direct.dry_total_weight"],3),
+  ", p = ", 
+  signif(corr_res$P_value_regression[corr_res$Direct == 
+                        "direct.dry_total_weight"],3)
+        )) +
+      theme_bw() +
+  theme(axis.title.y = element_text(size = 16),
+        axis.title.x = element_text(size = 16),
+        legend.position = "bottom",
+        panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank())
+corr_plot
+ggsave(filename = paste0(output_dir, 
+                         "effect_corr-D(dryTotalWeight)_vs_I(chloro).png"),
+       width = 5, height = 4, units = "in")
+
+# Save the plot object
+saveRDS(corr_plot, 
+        file = paste0(output_dir,
+                      "corr_plot-D(dryTotalWeight)_vs_I(chloro).rds"))
+```
+
+#### Post-hoc test Figures
+
+```{r figs_PHT}
+## figures (contrasts)
+load(file = "./indirect_files/models/cont3-amend.Rdata") ## loads cont
+
+## formatting
+cont$amend <- ifelse(grepl("BS", cont$contrast, fixed = FALSE),
+                      "BS", "RW")
+
+cont$amend <- factor(cont$amend,
+                      levels = c("RW",
+                                 "BS"))
+
+### sig traits
+sig.traits <- c(
+  "dry_total_weight",
+  "shoot_root_ratio",
+  "shoot_moisture",
+  "plant_height4",
+  "leaf_num2")
+
+### filter dataset to sig traits
+cont.f <- cont %>%
+         filter(trait %in% sig.traits) %>%
+         droplevels(.)
+
+cont.f$trait <- factor(cont.f$trait,
+          levels = c(#"dry_shoot_weight","dry_root_weight",
+         "dry_total_weight", 
+         "shoot_root_ratio",
+         "shoot_moisture",
+         "plant_height4",
+         "leaf_num2"))
+
+### rename traits
+trait_names <- c(
+  per_plant_weight = 'Per plant \n biomass (g)',
+  dry_shoot_weight = 'Dry shoot \n biomass (g)',
+  dry_total_weight = 'Dry total \n biomass (g)',
+  dry_root_weight = 'Dry root \n biomass (g)',
+  shoot_root_ratio = 'Shoot to \n root ratio',
+  shoot_moisture = 'Shoot \n moisture \n (%)',
+  germination_perc = 'Germination \n (%)',
+  survival_perc.corr = 'Survival \n (%)',
+  pods = "Pods (no.)",
+  plant_height4 = "Plant height \n (cm)",
+  leaf_num2 = "Leaves (no.)"
+)
+
+##### Contrasts (amendment type) #####
+M1_plot <- ggplot(data = cont.f,
+   aes(x = amend, 
+       y = log2(ratio), 
+       colour = amend)) +
+  geom_pointrange(aes(ymin = log2(lower.CL),
+                      ymax = log2(upper.CL)),
+                  position = position_dodge(0.5)) +
+  geom_hline(aes(yintercept = 0),
+             linetype = 2) +
+  ### add in significance (0.05 <= p < 0.1) 
+  geom_text(
+    data = cont.f %>% filter(pval >= 0.05 & pval < 0.1),
+    aes(x = amend, y = log2FC),
+    label = "+",
+    size = 6,
+    position = position_dodge(0.5),
+    vjust = -0.5
+  ) +
+  ### add in significance (p < 0.05) 
+  geom_text(
+    data = cont.f %>% filter(pval < 0.05),
+    aes(x = amend, y = log2FC),
+    label = "*",
+    size = 6,
+    position = position_dodge(0.5),
+    vjust = -0.3
+  ) +
+  coord_flip() +
+   scale_colour_manual(values = c(
+                                  "blue",
+                                 "#B06500")) +
+  facet_grid(trait~., scales = "fixed",
+             labeller = labeller(trait = trait_names)) +
+  labs(x = "Amendment",
+     y = expression(log[2]~"FC (95% CL)")) +
+  guides(colour = "none") +
+  theme_bw() +
+  theme(
+    axis.text = element_text(size = 12),
+    axis.title.x = element_text(size =  14),
+    axis.title.y = element_text(size =  14),
+    strip.text.y = element_blank(),
+    strip.text.x = element_text(size = 12, face = "bold"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+  )
+M1_plot
+
+## M2
+
+## emms (emmeans)
+emms <- read_csv("./indirect_files/models/emm4-contam.csv")
+
+## linear contrasts (to get sig linear trends)
+load(file = "./indirect_files/models/cont4-contam.Rdata")
+
+## include non-linear & linear terms
+cont.w <- cont %>%
+  pivot_wider(
+    names_from = contrast,
+    values_from = c("Est_CL", "pval"),
+    id_cols =  c("amend","trait")
+  )
+
+## combine emms and contrasts
+emms <- emms %>%
+  left_join(
+    cont.w %>% select(everything()),
+    by = c("amend","trait")
+  )
+
+## format
+emms$amend <- factor(emms$amend,
+                      levels = c("RW",
+                                 "BS"))
+
+### filter dataset to sig traits
+emms.f <- emms %>%
+         filter(trait %in% sig.traits) %>%
+         droplevels(.)
+
+## trait order
+emms.f$trait <- factor(emms.f$trait,
+          levels = c(
+         "dry_total_weight", 
+         "shoot_root_ratio",
+         "shoot_moisture",
+         "plant_height4",
+         "leaf_num2"))
+
+##### Contrasts (contamination level) #####
+M2_plot <- ggplot(data = emms.f,
+   aes(x = factor(spikeFac), 
+       y = emmean, 
+       colour = amend)) +
+  geom_line(aes(group = amend),
+            position = position_dodge(0.2)) +
+  geom_pointrange(aes(ymin = lower.CL,
+                      ymax = upper.CL),
+                  position = position_dodge(0.2)) +
+  ### add in significance (0.05 <= p < 0.1) 
+  geom_text(
+    data = emms.f %>% filter(spikeFac == 2 &
+                          pval_linear >= 0.05 & 
+                            pval_linear < 0.1),
+    aes(x = factor(spikeFac), y = emmean),
+    label = "+",
+    size = 6,
+    position = position_dodge(0.5),
+    vjust = -0.5
+  ) +
+  ### add in significance (p < 0.05) 
+  geom_text(
+    data = emms.f %>% filter(spikeFac == 2 &
+                               pval_linear < 0.05),
+    aes(x = factor(spikeFac), y = emmean),
+    label = "*",
+    size = 6,
+    position = position_dodge(0.5),
+    vjust = -0.5
+  ) +
+  ### add in significance (p < 0.05) - quadratic
+  geom_text(
+    data = emms.f %>% filter(spikeFac == 0 &
+                               pval_quadratic < 0.05),
+    aes(x = factor(spikeFac), y = emmean),
+    label = "*",
+    size = 6,
+    position = position_dodge(0.5),
+    vjust = -0.5
+  ) +
+  ### add in significance (p ms) - quadratic
+  geom_text(
+    data = emms.f %>% filter(spikeFac == 0 &
+                        pval_quadratic >= 0.05 & 
+                          pval_quadratic < 0.1),
+    aes(x = factor(spikeFac), y = emmean),
+    label = "+",
+    size = 6,
+    position = position_dodge(0.5),
+    vjust = -0.5
+  ) +
+   scale_colour_manual(values = c(
+                                  "blue",
+                                 "#B06500")) +
+  facet_grid(trait~., scales = "free_y",
+             labeller = labeller(trait = trait_names)) +
+  labs(y = expression("EM mean (95% CL)"), 
+       x = "Contaminant level") +
+  guides(colour = "none") +
+  theme_bw() +
+  theme(
+    axis.text = element_text(size = 12),
+   axis.title.x = element_text(size =  14),
+    axis.title.y = element_text(size =  14),
+    strip.text.y = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+  )
+M2_plot
+
+## combine together
+plots <- plot_grid(M1_plot, M2_plot,
+                   ncol = 2,
+                   rel_widths = c(1, 1),
+                   align = "h",
+                   labels = c("B","C"))
+plots
+## save
+ggsave("./indirect_files/figs/plots-PHT.png", plot = plots,
+       width = 5, height = 6, 
+       units = "in")
+saveRDS(plots, file = "indirect_files/figs/plot-PHT.rds")
+```
+
+### Figures (main text Fig. 3)
+
+```{r figs}
+## loaf formatted data file
+load(file = "./indirect_files/indirect-formatted.Rda") ## loads indirect
+
+## load emmeans
+load(file = "./indirect_files/models/emm1-slurry.means.Rda") ## loads emm.s
+
+## source function
+source("./Source_code/plot-indirect_emms.func.R")
+
+## traits to run through
+trait.list <- c("plant_height4",
+                "chlorophyll_content4_mean", 
+                "leaf_num2",
+                "wet_shoot_weight", 
+                "dry_shoot_weight",
+                "wet_root_weight", 
+                "dry_root_weight",
+                "dry_total_weight",
+                "shoot_root_ratio",
+                "shoot_moisture")
+
+plots.out <- sapply(trait.list, 
+                   plot_emms,
+                   df = indirect %>%
+                     filter(!amend %in% c("saline","no_treat")) %>%
+                     droplevels(.),
+                   simplify = FALSE, 
+                   USE.NAMES = TRUE)
+
+##### Raw data (peas-only) #####
+fig1 <- plot_grid(plots.out[["dry_total_weight"]] +
+                    labs(y = "Dry total \n biomass (g)"),
+                  plots.out[["shoot_root_ratio"]] +
+                    labs(y = "Shoot to \n root ratio"),
+                  plots.out[["shoot_moisture"]] +
+                    labs(y = "Shoot \n moisture (%)"),
+                  plots.out[["plant_height4"]] +
+                    labs(y = "Plant height \n (cm)") +
+                    theme(axis.title.x = element_text(
+                      size = 14),
+                      axis.text.x = element_text(
+                      size = 12)),
+          ncol = 1,
+          nrow = 4,
+          align = "v",
+          rel_heights = c(0.9,0.9,0.9,1.1),
+          labels = NULL)
+fig1
+ggsave("./indirect_files/figs/raw_peas.png",
+       width=5, height=8, units = "in")
+
+# ## stitch together with effect comparisons
+corr_plot <- 
+  readRDS("./indirect_files/figs/corr_plot-D(dryTotalWeight)_vs_I(chloro).rds")
+# eff_plot <- readRDS("./indirect_files/figs/eff_plot.rds")
+trait_plot <- 
+  readRDS(file = "./indirect_files/figs/height_vs_time.rds")
+PHT_plot <-
+  readRDS(file = "./indirect_files/figs/plot-PHT.rds")
+
+## combine
+fig <- plot_grid(
+  fig1,
+  PHT_plot,
+  ncol = 2,
+  rel_widths = c(1, 1),  # reduce height for legend
+  labels = c("A", "")
+)
+fig
+
+## save
+ggsave("./indirect_files/figs/Fig3.png", plot = fig,
+       width=10, height=6, units = "in")
+include_graphics("./indirect_files/figs/Fig3.png")
+```

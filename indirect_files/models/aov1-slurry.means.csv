@@ -1,0 +1,18 @@
+"trait","Soil slurry","sig_contrasts"
+"plant_height1","F [21, 48] = 2.1, p = 0.0169*","(1US-RW-P) / Saline Control: t = -3.85, df = , 48; log2FC [95% CL] = -0.893 [-1.61 to -0.177]"
+"plant_height2","F [21, 48] = 1.94, p = 0.0294*","(11SL1-RW-P) / Saline Control: t = -3.23, df = , 48; log2FC [95% CL] = -0.745 [-1.46 to -0.0347] | (1US-RW-P) / Saline Control: t = -3.48, df = , 48; log2FC [95% CL] = -0.802 [-1.51 to -0.0914]"
+"plant_height3","F [21, 48] = 1.82, p = 0.0439*","(11SL1-RW-P) / Saline Control: t = -3, df = , 48; log2FC [95% CL] = -1.07 [-2.18 to 0.0293] | (47SL2-BS-P) / Saline Control: t = -3.05, df = , 48; log2FC [95% CL] = -1.09 [-2.19 to 0.013]"
+"chlorophyll_content1_mean","F [19, 23] = 0.918, p > 0.1",NA
+"chlorophyll_content2_mean","F [21, 43] = 1.83, p = 0.0458*","(19SL2-RW-P) / Saline Control: t = 3.45, df = , 43; log2FC [95% CL] = 0.0736 [0.0075 to 0.14]"
+"chlorophyll_content3_mean","F [20, 42] = 0.511, p > 0.1",NA
+"leaf_num","Chisq [21, NA] = 4.7, p > 0.1",NA
+"plant_height4","F [21, 48] = 2.25, p = 0.0102*","(11SL1-RW-P) / Saline Control: t = -2.97, df = , 48; log2FC [95% CL] = -0.878 [-1.79 to 0.0351] | (47SL2-BS-P) / Saline Control: t = -3.84, df = , 48; log2FC [95% CL] = -1.14 [-2.05 to -0.224]"
+"chlorophyll_content4_mean","F [21, 43] = 1.36, p > 0.1","(37SL1-BS-P) / Saline Control: t = -3.51, df = , 43; log2FC [95% CL] = -0.185 [-0.349 to -0.0215]"
+"leaf_num2","Chisq [21, NA] = 10.6, p > 0.1",NA
+"wet_shoot_weight","F [21, 48] = 1.49, p > 0.1","(47SL2-BS-P) / Saline Control: t = -2.91, df = , 48; log2FC [95% CL] = -1.29 [-2.66 to 0.0754]"
+"dry_shoot_weight","F [21, 48] = 1.55, p > 0.1","(11SL1-RW-P) / Saline Control: t = -2.88, df = , 48; log2FC [95% CL] = -1.33 [-2.76 to 0.0943] | (47SL2-BS-P) / Saline Control: t = -2.97, df = , 48; log2FC [95% CL] = -1.37 [-2.8 to 0.0528]"
+"wet_root_weight","F [21, 48] = 1.23, p > 0.1",NA
+"dry_root_weight","F [21, 48] = 1.25, p > 0.1","(11SL1-RW-P) / Saline Control: t = -2.83, df = , 48; log2FC [95% CL] = -1.34 [-2.79 to 0.117]"
+"dry_total_weight","F [21, 48] = 1.53, p > 0.1","(11SL1-RW-P) / Saline Control: t = -3.35, df = , 48; log2FC [95% CL] = -1.34 [-2.57 to -0.105] | (47SL2-BS-P) / Saline Control: t = -3.11, df = , 48; log2FC [95% CL] = -1.24 [-2.48 to -0.0108]"
+"shoot_root_ratio","F [21, 48] = 1.69, p = 0.0667.",NA
+"shoot_moisture","F [21, 48] = 2.02, p = 0.0224*","(39SL1-BS-P) / Saline Control: t = 4.41, df = , 48; log2FC [95% CL] = 0.75 [0.226 to 1.27]"

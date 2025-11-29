@@ -20,7 +20,7 @@ library("devtools") ## this needs to be installed and loaded prior to running
 ### the following:
 # install_github("helixcn/seqRFLP")
 ## Bioconductor packages
-#if (!require("BiocManager", quietly = TRUE))
+# if (!require("BiocManager", quietly = TRUE))
 #    install.packages("BiocManager")
 #BiocManager::install("phyloseq")
 #BiocManager::install("DESeq2")
@@ -30,41 +30,48 @@ library("devtools") ## this needs to be installed and loaded prior to running
 ## load packages:
 library("tidyverse") ## ggplot, dplyr, et c.
 library("readxl")
+library("knitr")
 library("cowplot")
-library("ggbeeswarm")
-library("ggrepel")
+library("ggbeeswarm") ## prevent overlapping data points in ggplot
+library("ggrepel") ## ensure text doesn't overlap in plots
 library("car")
 library("emmeans")
-library("Polychrome") ## generate randomized discrete colour palettes
-library("paletteer") ## generate colour palettes
-library("cluster")
-library("data.table")
-library("grid")
-library("ape")
-library("phangorn")
-library("phytools")
-library("vegan")
-library("seqinr") 
+library("FSA") ## dunn's style test
 library("phyloseq")
-library("seqRFLP")
-library("DESeq2") 
+library("vegan")
 library("pheatmap")
-library("circlize")
-library("knitr")
+library("caret") ## findCorrelation func
+
+
+## not sure these are needed
+#library("Polychrome") ## generate randomized discrete colour palettes
+#library("paletteer") ## generate colour palettes
+#library("cluster")
+#library("data.table")
+#library("grid")
+#library("ape")
+#library("phangorn")
+
+#library("seqinr") 
+#library("phytools")
+library("seqRFLP") ## dataframe2fas function
+#library("DESeq2") 
+#library("circlize")
+
 # library("patchwork") ## couldn't load
 
-#library("AfterSl1p") ## couldn't install
+# library("AfterSl1p") ## couldn't install
 
-#library("ShortRead") ## couldn't install
+# library("ShortRead") ## couldn't install
 ```
 
 ## Import and format data
 
-OTU table, taxonomy assignment, metadata
+### OTU table, taxonomy assignment
 
 ```{r load_data}
 ##### load OTU file (rownames as sequences, cols as samples) #####
-otufile <- "./seqtab_nochim_transposed_RD-Mar2025_v4.csv"
+otufile <- "./raw_data/seqtab_nochim_transposed_RD-Mar2025_v4.csv"
 otu_df <- read.csv(otufile, row.names = 1)
 
 ## extract ASV sequences
@@ -72,18 +79,20 @@ seqs <- rownames(otu_df)
 ## save asv sequences
 seqs_df <- as.data.frame(seqs)
 rownames(seqs_df) <- paste0("OTU", 1:nrow(seqs_df))
-write.csv(seqs_df, file="./16S_outputs/ASV_sequencesv4R1.csv")
-seqs.fasta <- dataframe2fas(seqs, file="./16S_outputs/ASVseqs.fasta")
+write.csv(seqs_df, file="./16S_analyses_files/ASV_sequencesv4R1.csv")
+seqs.fasta <- dataframe2fas(seqs, file="./16S_analyses_files/ASVseqs.fasta")
 ## get rid of ASVs as rownames
 otu.rn <- otu_df
 rownames(otu.rn) <- NULL
+## save otu file
+save(otu.rn, file = "./16S_analyses_files/otu_cleaned.Rda")
 
 ## initial plotting (distribution of reads)
 long_otu <- otu.rn %>% 
-  gather(key = "Sample_ID", value = "n_seqs")
+  gather(key = "Study_ID", value = "n_seqs")
 
 sampling_coverage <- long_otu %>% 
-  group_by(Sample_ID) %>% 
+  group_by(Study_ID) %>% 
   summarise(n_seqs = sum(n_seqs))
 ## negative controls, water samples
 
@@ -117,205 +126,169 @@ sampling_coverage %>%
 # arranging samples in order of n_seqs, see number of samples we have on the 
 # x axis and number of seqs in each of those samples, where the shoulder is, 
 # that's probably where we want to cut, also zooming into shoulder
+save(sampling_coverage, file = "./16S_analyses_files/sampling_coverage.Rdata")
 
 ##### taxa file (rownames as ASVs, cols as taxonomic information) #####
-taxfile <- "./taxa_RD-Mar2025_v4_silva1382WSP.csv"
+taxfile <- "./raw_data/taxa_RD-Mar2025_v4_silva1382WSP.csv"
 tax_df <- read.csv(taxfile, row.names = 1)
 all(seqs == rownames(tax_df)) ## TRUE
 ## get rid of rownames
 tax.rn <- tax_df
 rownames(tax.rn) <- NULL
-
 ## save taxonomy file
-save(tax.rn, file = "./16S_outputs/tax_cleaned.Rda")
+save(tax.rn, file = "./16S_analyses_files/tax_cleaned.Rda")
+```
 
-##### metadata file (rows as samples, cols as metadata) #####
-metfile <- "./mapfileV4 2.csv"
-met_df <- read.csv(metfile)
-met_df$Sample_ID <- met_df$NAME ## to make consistent with full metadata
+### Metadata file
 
-## check missing metadata
-meta.check <- left_join(sampling_coverage, met_df, by = "Sample_ID")
+Include phenotype information from direct and indirect experiments
 
-## add in missing info
+```{r metadata_format}
+## load sample info
 sample_info <- 
-  read_excel("./RD-Fate of contaminants- sample info sheet - Mar2025 - updated05Aug2025.xlsx")
-sample_info$pot_ID <- sample_info$`Sample ID`
-meta_full <- left_join(meta.check, sample_info, by = "ID")
-all(meta_full$Sample_ID == meta_full$`Study ID`) ## NA
-## only the four -ve controls didn't match
-## plus samples RD 157-159 (redone samples?)
+  read_csv(
+    "./raw_data/Sample info sheet - updated21Sept2025.csv")
 
 ## get rid of unnecessary cols
-meta.s <- meta_full %>%
-  select(!where(~all(is.na(.))))
+sample_info.s <- sample_info %>%
+  select("ID", "Sample_ID", "Study_ID",
+         "Sampling_Date",
+         "Sample_Type","Sample_Treatment",
+         "species","pot_ID", "Spiking_level",
+         "Amendment")
 
-## add in more sample type info
-meta.s$type <- 
-  ifelse(is.na(meta.s$Sample_type) & grepl("neg", meta.s$Sample_ID), 
-         "neg_control",
-  ifelse(meta.s$Sample_ID %in% 
-           c("RD157","RD158","RD159"),
-         "Commercial soil",
-   ifelse(grepl("Autoclaved", meta.s$`Sample ID`, fixed = FALSE),
-                "Autoclaved", paste0(meta.s$Sample_type))))
+## load sampling coverage info
+load(file = "./16S_analyses_files/sampling_coverage.Rdata") ## loads sampling_coverage
+
+meta_full <- left_join(sample_info.s, sampling_coverage, by = "Study_ID")
+
+## Add in timepoints
+meta_full.sum <- meta_full %>%
+  group_by(Sample_ID) %>%
+  summarize(paste(`Sampling_Date`, collapse = " | "),
+            paste(`Study_ID`, collapse = " | "))
+
+## create timepoints sampling
+meta_full$timepoint <- ifelse(is.na(meta_full$Sampling_Date) == TRUE,
+                              "Source",
+                        ifelse(meta_full$Sampling_Date == "2024-07-11",
+                               "TP1",
+                           ifelse(meta_full$Sampling_Date %in% 
+                                    c("2024-08-06", ## radish
+                                      "2024-08-18", ## lettuce
+                                      "2024-08-19", ## pea (first batch)
+                                      "2024-08-26", ## pea (second batch)
+                                      "2024-09-01"), ## GH: Soil controls
+                                  "TP2",
+                                  "Source")
+                           ))
 
 ## look at n_seqs depending on sample type
-ggplot(meta.s, aes(x = type, y = n_seqs)) +
-  geom_boxplot()
+ggplot(meta_full, aes(x = Sample_Type, y = n_seqs)) +
+  geom_boxplot() +
+  coord_flip()
 
-## exclude water and NA for now
-## also exclude autoclaved soil samples (TP1)
-meta.f <- meta.s %>% 
-  filter(!type %in% c("Water", "Commercial soil", "neg_control") &
-           !grepl("Autoclaved", meta.s$`Sample ID`)) %>%
+## look at n_seqs depending on sample treatment
+ggplot(meta_full, aes(x = Sample_Treatment, y = n_seqs)) +
+  geom_boxplot(aes(fill = timepoint)) +
+  coord_flip()
+
+## exclude water samples + autoclaved soils (source)
+meta <- meta_full %>% 
+  filter(!str_detect(Sample_Treatment, "water") &
+         !str_detect(Sample_Treatment, "Autoclaved")) %>%
   droplevels(.)
 ## 138 samples to include going forward
 
-## replace NAs in treatment with relevant grouping info
-meta.f$treat <- ifelse(meta.f$`Sample ID` %in% c("BS1","BS2","BS3"),
-                          "GH: Soil + BS",
-                          ifelse(meta.f$`Sample ID` %in% c("S1","S2","S3"),
-                                 "GH: Soil only",
-                                 ifelse(is.na(meta.f$Treatment) == TRUE,
-                                        paste0(meta.f$`Sample ID`),
-                           paste0(meta.f$Treatment))))
-
-## plot distribution after exluding samples
-ggplot(meta.f,
+## plot distribution after excluding samples
+ggplot(meta,
        aes(x=n_seqs)) + 
        geom_density() # density plot
 
-meta.f %>% 
+meta %>% 
   arrange(n_seqs) %>% 
   ggplot(aes(x=1:nrow(.), y=n_seqs)) + 
   geom_line() + 
-  coord_cartesian(xlim=c(0,10), ylim=c(10000, 25000)) +
+  coord_cartesian(xlim=c(0,100), ylim=c(10000, 100000)) +
   geom_hline(aes(yintercept = 12000), linetype = 2)
 
-## add in other formatting for metadata file (factor specification)
-# Recode levels
-meta.f$treat.rn <- dplyr::recode(meta.f$treat, 
-                          `Biosolids` = "Biosolids",
-                          `Garden Soil` = "Garden Soil",
-                          `GH: Soil only` = "GH: Soil only", 
-                          `GH: Soil + BS` = "GH: Soil + BS", 
-                          `C` = "control-0",
-                          `US-RW` = "RW-0",
-                          `SL1-RW` = "RW-1",
-                          `SL2-RW` = "RW-2",
-                          `US-BS` = "BS-0",
-                          `SL1-BS` = "BS-1",
-                          `SL2-BS` = "BS-2")
+## add in other formatting for metadata file (factor specifications)
+### Recode levels
+treat_ordered <- c("control-0", ## reference
+                   "Garden Soil",
+                   "Biosolids",
+                   "GH: Soil only",
+                   "GH: Soil + BS",
+                   "RW-0",
+                   "RW-1",
+                   "RW-2",
+                   "BS-0",
+                   "BS-1",
+                   "BS-2")
 
-treat_ordered <- c("Garden Soil",
-                 "Biosolids",
-                 "GH: Soil only",
-                 "GH: Soil + BS",
-                 "control-0",
-                 "RW-0",
-                 "RW-1",
-                 "RW-2",
-                 "BS-0",
-                 "BS-1",
-                 "BS-2")
-
-meta.f$treat.rn <- factor(meta.f$treat.rn, 
+meta$treat.rn <- factor(meta$Sample_Treatment, 
                                 levels = treat_ordered)
 
-## create timepoint sampling
-meta.f$timepoint <- ifelse(meta.f$Sampling_date == "2024-07-11",
-                               "TP1",
-                               ifelse(meta.f$Sampling_date %in% 
-                                        c("2024-08-06", ## radish
-                                          "2024-08-18", ## lettuce
-                                          "2024-08-19", ## pea (first batch)
-                                          "2024-08-26", ## pea (second batch)
-                                          "2024-09-01"), ## plant-free controls
-                                      "TP2","other"))
-## initial sampling for peas (first batch planted)
-## second pea sampling for second batch
-
-## create timepoint_species var (for PCoA plot)
-meta.f$species <- ifelse(is.na(meta.f$Species) == FALSE,
-                            paste0(meta.f$Species),
+meta$species <- ifelse(is.na(meta$species) == FALSE,
+                            paste0(meta$species),
                             "no_plant")
-meta.f$species <- factor(meta.f$species,
+# unique(meta$species)
+# [1] "no_plant" "P"        "R"        "L" 
+meta$species <- factor(meta$species,
                             levels = c("no_plant", "L", "R", "P"))
 
-meta.f$species_tp <- ifelse(is.na(meta.f$Species) == FALSE,
-                            paste0(meta.f$Species,"_",meta.f$timepoint),
+meta$species_tp <- ifelse(is.na(meta$species) == FALSE,
+                            paste0(meta$species,"_",meta$timepoint),
                             "no_plant")
-meta.f$species_tp <- factor(meta.f$species_tp,
-                            levels = c("no_plant", "L_TP1", "R_TP1","P_TP1",
+# unique(meta$species_tp)
+# [1] "no_plant" "P_TP2"    "R_TP1"    "L_TP1"    "R_TP2"    "L_TP2"    "P_TP1" 
+meta$species_tp <- factor(meta$species_tp,
+                            levels = c("no_plant_Source", "no_plant_TP2",
+                                       "L_TP1", "R_TP1","P_TP1",
                                        "L_TP2", "R_TP2", "P_TP2"))
 
-## Add in trait data from indirect experiment (peas only, TP2)
-### load emmeans
-load(file = "./indirect/model_outputs/emm1.Rda") ## loads emm
+meta$tp_treat <- paste(meta$timepoint, meta$treat.rn, sep = "_")
+meta$tp_treat <- as.factor(meta$tp_treat)
+meta$species_treat <- paste(meta$species, meta$treat.rn, sep = "_")
+meta$species_treat <- as.factor(meta$species_treat)
 
-### normalize to controls
-emm.controls <- emm %>%
-  filter(contam == "control") %>%
-  group_by(trait) %>%
-  summarize(mean_controls = mean(response, na.rm = TRUE))
-emm$mean_controls <- 
-  emm.controls$mean_controls[match(emm$trait, 
-                                      emm.controls$trait)]
-emm.c <- emm %>%
-  mutate(resp_norm = log2(response/mean_controls))
+### relevel Amendment to compare to control
+meta$Amendment <- factor(meta$Amendment,
+                                levels = c("control","RW","BS"))
+### make new factor (spikeFac, ordered)
+meta$spikeFac <- factor(meta$Spiking_level,
+                               levels = c("SL-0","SL-1","SL-2"),
+                               ordered = TRUE)
+### make new factor (spikeFac, ordered)
+meta$timepoint <- factor(meta$timepoint,
+                               levels = c("Source","TP1","TP2"),
+                               ordered = TRUE)
 
-### normalize to controls
-emm.c$slurry_trait <- paste0(emm.c$treatment,"-",
-                                emm.c$trait)
-emm.s <- emm.c %>%
-  select(where(is.numeric), slurry_trait, treatment, trait)
-### pivot wider
-emm.w <- emm.s %>%
-  pivot_wider(
-    names_from = trait,
-    values_from = c(resp_norm,response),
-    id_cols = treatment
-  )
+## add in trait data from direct/indirect experiments
+## save combined data frame
+load(file = "./direct_indirect-combined.Rda") ## loads direct.w
 
-### change treatment to pot_ID for merging
-emm.w$treatment <- as.character(emm.w$treatment)
-### need to add the dash between pot number and treatment (to merge with meta)
-emm_clean <- emm.w %>%
-  mutate(
-    pot_number = as.numeric(str_extract(treatment, "\\d+")),
-    treat = str_replace(treatment, "\\d+\\s*", ""),
-    pot_ID = ifelse(is.na(pot_number) == FALSE,
-                       paste0(pot_number,"-", treat),
-                       paste0(treat)),
-    timepoint = "TP2",
-    ### make pot_IDs for controls the same as in meta
-    pot_ID = ifelse(grepl("55-Control", pot_ID), "55-C-P", 
-                    ifelse(grepl("56-Control", pot_ID), "56-C-P", 
-                           ifelse(grepl("57-Control", pot_ID), "57-C-P",
-                                  pot_ID)))
-  ) %>%
-  select(-treatment, -treat, - pot_number)
+## combine into one
+meta <- left_join(meta, direct.w, by = "pot_ID")
 
-### merge with meta
-meta <- left_join(meta.f, emm_clean, by = c("pot_ID","timepoint"))
-
-save(meta, file = "./16S_outputs/metadata_cleaned.Rda")
-write.csv(meta, "./16S_outputs/metadata_cleaned.csv", row.names = FALSE)
+save(meta, file = "./16S_analyses_files/metadata_cleaned.Rda")
+write.csv(meta, "./16S_analyses_files/metadata_cleaned.csv", row.names = FALSE)
 
 ### subset otu file to just the samples of interest (in experiment)
-samples_to_include <- unique(meta$Sample_ID)
+samples_to_include <- unique(meta$Study_ID)
 
+## load otu file
+load(file = "./16S_analyses_files/otu_cleaned.Rda") ## loads otu.rn
 otu.f <- otu.rn %>%
   select(all_of(samples_to_include))
 
-all(meta$Sample_ID == colnames(otu.f)) ## TRUE
+all(meta$Study_ID == colnames(otu.f)) ## TRUE
 
 ### Overview of Seq run (colSums adds up number of reads for each sample)
 sort(colSums(otu.f)) ## num of reads for each sample (we had 138 total) 
 sort(colSums(otu.f !=0)) ## this is sorting the num of ASVs for ea. sample
 
-save(otu.f, file = "./16S_outputs/OTU-tab_cleaned.Rda")
+save(otu.f, file = "./16S_analyses_files/OTU-tab_cleaned.Rda")
 ```
 
 ## Create phyloseq objects
@@ -326,29 +299,29 @@ https://joey711.github.io/phyloseq/import-data.html
 
 ```{r phyloseq}
 ## load relevant files
-load(file = "./16S_outputs/tax_cleaned.Rda") ## loads tax.rn
-load(file = "./16S_outputs/metadata_cleaned.Rda") ## loads meta
-load(file = "./16S_outputs/OTU-tab_cleaned.Rda") ## loads otu.f
+load(file = "./16S_analyses_files/tax_cleaned.Rda") ## loads tax.rn
+load(file = "./16S_analyses_files/metadata_cleaned.Rda") ## loads meta
+load(file = "./16S_analyses_files/OTU-tab_cleaned.Rda") ## loads otu.f
 
 ## ensuring sample and OTU names match
 rownames(otu.f) <- paste0("OTU", 1:nrow(otu.f))
 rownames(tax.rn) <- paste0("OTU", 1:nrow(tax.rn))
-rownames(meta) <- meta$NAME
+rownames(meta) <- meta$Study_ID
 
 ## create the phyloseq object
 OTU <- otu_table(otu.f, taxa_are_rows = TRUE)
 TAX <- tax_table(as.matrix(tax.rn))
 SAMPLE <- sample_data(meta)
 ### need to reset rownames so they match
-rownames(SAMPLE) <- meta$NAME
+rownames(SAMPLE) <- meta$Study_ID
 ### put them together
 ps <- phyloseq(OTU, TAX, SAMPLE)
 
 samplesums <- sort(sample_sums(ps))
-write.csv(samplesums, file="./16S_outputs/readcounts_per_sample_sorted.csv")
+write.csv(samplesums, file="./16S_analyses_files/readcounts_per_sample_sorted.csv")
 plot(samplesums) ## distribution of sampling depth
 
-save(ps, file = "./16S_outputs/phyloseq.Rda") ## saves full phyloseq
+save(ps, file = "./16S_analyses_files/phyloseq.Rda") ## saves full phyloseq
 
 ## Filter table of bacterial taxa
 
@@ -367,17 +340,9 @@ save(ps, file = "./16S_outputs/phyloseq.Rda") ## saves full phyloseq
 dat_lessHOST <- subset_taxa(ps, Kingdom=="Bacteria", 
                             Family!="Mitochondria")
 ### save
-save(dat_lessHOST, file = "./16S_outputs/phyloseq_noHOST.Rda")
+save(dat_lessHOST, file = "./16S_analyses_files/phyloseq-noHOST.Rda")
 write.csv(t(otu_table(dat_lessHOST)), 
-          file="./16S_outputs/otu_table_noHOST.csv")
-
-## remove OTUs less than 1%
-rel_abun_all <- transform_sample_counts(dat_lessHOST, function(x) x/sum(x))
-rel_abun_all_prune <- prune_taxa(taxa_sums(rel_abun_all) > 0.01,
-                                dat_lessHOST)
-save(rel_abun_all_prune, file = "./16S_outputs/phyloseq_noHOST_pruned1.Rda")
-write.csv(otu_table(rel_abun_all_prune), 
-          file="./16S_outputs/otu_table_noHOST_prune1.csv")
+          file="./16S_analyses_files/otu_table-noHOST.csv")
 
 # glom to phylum level, this function merges taxa based on their taxonomic 
 # rank, grouping into broader categories, was originally phylum, doesn't have 
@@ -387,23 +352,23 @@ write.csv(otu_table(rel_abun_all_prune),
 # taxa.
 
 ## glom to family level
-rare_ps_family <- tax_glom(rare_ps, taxrank="Family")
-write.csv(otu_table(rare_ps_family), 
-          file="./16S_outputs/otu_table_noHOST_rarified_family.csv")
-save(rare_ps_family, 
-     file = "./16S_outputs/phyloseq_noHOST_rarified_family.Rda")
+# rare_ps_family <- tax_glom(rare_ps, taxrank="Family")
+# write.csv(otu_table(rare_ps_family), 
+#           file="./16S_outputs/otu_table_noHOST_rarified_family.csv")
+# save(rare_ps_family, 
+#      file = "./16S_outputs/phyloseq_noHOST_rarified_family.Rda")
 ### on non-rarified (in case it matters)
-noHost_family <- tax_glom(dat_lessHOST, taxrank="Family")
-write.csv(otu_table(noHost_family), 
-          file="./16S_outputs/otu_table_noHOST_family.csv")
-save(noHost_family, 
-     file = "./16S_outputs/phyloseq_noHOST_family.Rda")
-### after removing rare ASVs (in case it matters)
-rel_abund_family <- tax_glom(rel_abun_all_prune, taxrank="Family")
-write.csv(otu_table(rel_abund_family), 
-          file="./16S_outputs/otu_table_noHOST_prune1_family.csv")
-save(rel_abund_family, 
-     file = "./16S_outputs/phyloseq_noHOST_prune1_family.Rda")
+# noHost_family <- tax_glom(dat_lessHOST, taxrank="Family")
+# write.csv(otu_table(noHost_family), 
+#           file="./16S_outputs/otu_table_noHOST_family.csv")
+# save(noHost_family, 
+#      file = "./16S_outputs/phyloseq_noHOST_family.Rda")
+# ### after removing rare ASVs (in case it matters)
+# rel_abund_family <- tax_glom(rel_abun_all_prune, taxrank="Family")
+# write.csv(otu_table(rel_abund_family), 
+#           file="./16S_outputs/otu_table_noHOST_prune1_family.csv")
+# save(rel_abund_family, 
+#      file = "./16S_outputs/phyloseq_noHOST_prune1_family.Rda")
 ```
 
 ## Rarefaction curve
@@ -413,19 +378,19 @@ https://fromthebottomoftheheap.net/2015/04/16/drawing-rarefaction-curves-with-cu
 
 ```{r rarify_data}
 ## load relevant file
-load(file = "./16S_outputs/OTU-tab_cleaned.Rda") ## loads otu.f
-load(file = "./16S_outputs/metadata_cleaned.Rda") ## loads meta
+load(file = "./16S_analyses_files/OTU-tab_cleaned.Rda") ## loads otu.f
+load(file = "./16S_analyses_files/metadata_cleaned.Rda") ## loads meta
 
 ## transpose OTU (samples as rows, ASVs as cols)
 otu.t <- t(otu.f)
 raremax <- min(rowSums(otu.t)) ## rowsums now adds up reads
 raremax ## 12162
 
-## sort cols by rowSums, pick bottom 26
+## sort cols by rowSums, pick bottom 25
 row_sums <- rowSums(otu.t)
 sorted_indices_asc <- order(row_sums)
 otu.s <- otu.t[sorted_indices_asc, ]
-otu.26 <- otu.s[1:26, ]
+otu.25 <- otu.s[1:25, ]
 
 ## testing the code: set up plotting parameters
 col <- c("black", "darkred", "forestgreen", 
@@ -435,36 +400,25 @@ pars <- expand.grid(col = col, lty = lty, stringsAsFactors = FALSE)
 head(pars)
 
 ## creating the initial plot
-out <- with(pars[1:26, ],
-            rarecurve(otu.26, step = 20, sample = raremax, col = col,
+out <- with(pars[1:25, ],
+            rarecurve(otu.25, step = 20, sample = raremax, col = col,
                       lty = lty, label = FALSE))
-
-## re-plot using different parameters
-col <- c("black", "darkred", "forestgreen", "hotpink", "blue")
-lty <- c("solid", "dashed", "dotdash")
-lwd <- c(1, 2)
-pars <- expand.grid(col = col, lty = lty, lwd = lwd, 
-                    stringsAsFactors = FALSE)
-head(pars)
 
 ## pull out required parameters from out
 Nmax <- sapply(out, function(x) max(attr(x, "Subsample")))
 Smax <- sapply(out, max)
 
-## remake plot using new parameters
-plot(c(1, max(Nmax)), c(1, max(Smax)), xlab = "Sample Size",
-     ylab = "Species", type = "n")
-abline(v = raremax)
-for (i in seq_along(out)) {
-    N <- attr(out[[i]], "Subsample")
-    with(pars, lines(N, out[[i]], col = col[i], lwd = lwd[i]))
-}
+## colour curves by treatment
+rownames(meta) <- meta$Study_ID
+
+## sort meta to match otu.50
+meta_ordered <- meta[rownames(otu.25), ]
 
 ## set colours to grouping var (treat)
 ### determine how many treatment groups
-length(unique(meta$treat.rn)) ## 11
-mycols <- c(rep("black",4),   ## source controls
-            "gray",           ## unamended controls          
+length(levels(meta_ordered$treat.rn)) ## 11
+mycols <- c("gray", ## unamended controls  
+            rep("black",4),   ## source controls
             "lightblue",      ## RW-0
             "cornflowerblue", ## RW-2
             "blue",           ## RW-3
@@ -472,23 +426,24 @@ mycols <- c(rep("black",4),   ## source controls
             "#FFAD00",        ## BS-1
             "#B06500")        ## BS-2
 
-## grouping factor (treatment)
-grp <- factor(meta$treat.rn)
-cols <- mycols[grp]
+# Set levels of the factor to match the order of colours in mycols
+grp <- factor(meta_ordered$treat.rn, 
+              levels = levels(meta_ordered$treat.rn))  
+# or use unique(meta_ordered$treat.rn) if needed
+cols <- mycols[as.numeric(grp)]
 
-png(filename = "./16S_outputs/rarefaction_curve.png",
-    width = 6, height = 5, units = "in",
-    res = 300)
+png(filename = "./16S_analyses_files/figs/rarefaction_curve.png",
+    width = 6, height = 6, units = "in", res = 300)
 plot(c(1, max(Nmax)), c(1, max(Smax)), xlab = "Sample Size",
      ylab = "ASVs", type = "n")
-abline(v = raremax, lty = 2)
+abline(v = raremax)
 for (i in seq_along(out)) {
     N <- attr(out[[i]], "Subsample")
     lines(N, out[[i]], col = cols[i], lwd = 2)
 }
 dev.off()
-include_graphics("./16S_outputs/rarefaction_curve.png")
 
+include_graphics("./16S_analyses_files/figs/rarefaction_curve.png")
 ```
 
 ## Alpha diversity
@@ -497,7 +452,8 @@ Run on rarified data in which host DNA is removed
 
 Rarefaction is generally recommended for alpha diversity metrics 
 (e.g., Shannon, Simpson, Observed OTUs) because these are sensitive to 
-sampling depth. It ensures that differences in diversity are due to biological variation, not sequencing effort.
+sampling depth. It ensures that differences in diversity are due to biological 
+variation, not sequencing effort.
 
 Shannon
 What it measures:
@@ -517,14 +473,29 @@ Interpretation:
 * Higher values = more even communities.
 * A community dominated by one or few taxa will have a low inverse Simpson 
   value.
-* Typical range: Starts at 1 (minimum diversity); higher values indicate more diversity.
+* Typical range: Starts at 1 (minimum diversity); higher values indicate 
+  more diversity.
 
 
-### Plots (Fig. 2 - partial)
+### Calculate diveristy (shannon, simpson)
 
-```{r alpha_div_plot }
+Need to normalize to garden soil to get diversity loss
+
+To capture how diversity changes between T1 and T2, 
+we calculated rate of recovery relative to the initial loss:
+
+RR = (Div T2 - Div T1) / Div initial (garden soil)
+
+expressing the change between TP2 and TP1 
+as a fraction of the initial diversity:
+* Positive value → diversity increased from TP1 to TP2 (recovery).
+* Negative value → diversity decreased further from TP1 to TP2 (continued loss).
+* Magnitude → how large the change is relative to the initial diversity baseline.
+
+```{r alpha_div-calc}
 ## load relevant phyloseqs
-load(file = "./16S_outputs/phyloseq_noHOST.Rda") ## loads dat_lessHOST
+load(file = "./16S_analyses_files/phyloseq-noHOST.Rda") ## loads dat_lessHOST
+load(file = "./16S_analyses_files/metadata_cleaned.Rda") ## loads meta
 
 # rarefy, rarefying to 12000 based on curve
 min_lib <- min(sample_sums(dat_lessHOST))
@@ -532,65 +503,119 @@ rare_ps <- rarefy_even_depth(dat_lessHOST,
                            sample.size= min_lib,
                            verbose=FALSE,
                            replace = FALSE)
+## save
+save(rare_ps, file = "./16S_analyses_files/phyloseq-noHOST_rare.Rda")
+write.csv(t(otu_table(rare_ps)), 
+          file="./16S_analyses_files/otu_table-noHOST_rare.csv")
 
-save(rare_ps, file = "./16S_outputs/phyloseq_noHOST_rarified.Rda")
-rare_ps.t <- t(otu_table(rare_ps))
-write.csv(rare_ps.t, 
-          file="./16S_outputs/otu_table_noHOST_rarified.csv")
-
-## Extract richness metrics to pair with metadata
+## calculate richness metrics to pair with metadata
 richness.df <- estimate_richness(rare_ps, 
                                  measures = 
                                    c("Shannon",
                                      "InvSimpson"))
 
-## Combine with sample metadata
-richness.df <- cbind(sample_data(rare_ps), richness.df)
-
 ## correction to InvSimp (x100)
 richness.df$InvSimpson.c <- richness.df$InvSimpson /100
 
-## does diversity depend on species, amendment, timepoint?
-### should just treat as a trait in indirect exp set up
+## create a col for sample ID
+richness.df$Study_ID <- rownames(richness.df)
 
-richness.df$treat.rn <- 
-  relevel(richness.df$treat.rn, ref = "control-0")
-richness.df$tp_treat <- 
-  paste0(richness.df$timepoint, richness.df$treat.rn)
-richness.df$tp_treat <- 
-  as.factor(richness.df$tp_treat)
-richness.df$tp_treat <- 
-  relevel(richness.df$tp_treat, ref = "TP1control-0")
-richness.df$species_treat <- 
-  paste0(richness.df$species, "-",
-         richness.df$treat.rn)
-richness.df$species_treat <- 
-  as.factor(richness.df$species_treat)
-richness.df$species_treat <- 
-  relevel(richness.df$species_treat,
-          ref = "no_plant-Garden Soil")
-richness.df$spikeFac <- factor(richness.df$Spiking_level,
-                               levels = c("US","SL1","SL2"),
-                               ordered = TRUE)
+## Combine with sample metadata
+meta <- left_join(meta, richness.df, by = "Study_ID")
 
-save(richness.df, file = "./16S_outputs/richness.Rda")
+## recovery rates
+### convert to long for traits
+meta.l <- meta %>%
+  pivot_longer(
+    cols = c("Shannon","InvSimpson.c"),
+    names_to = "metric",
+    values_to = "units"
+  )
+### 138 samples x 2 traits = 276 rows
 
+### calculate loss of diversity (relative to Garden Soil)
+meta.GS <- meta.l %>%
+  filter(Sample_Treatment == "Garden Soil") %>%
+  group_by(metric) %>%
+  summarize(mean_GS = mean(units, na.rm = TRUE)) %>%
+  ungroup(.)
+
+GS_shannon <- meta.GS$mean_GS[meta.GS$metric == "Shannon"]
+GS_simpson <- meta.GS$mean_GS[meta.GS$metric == "InvSimpson.c"]
+
+## add in control means to long df
+meta.l <- meta.l %>%
+  left_join(
+    meta.GS,
+    by = c("metric")
+  ) %>%
+  mutate(div.loss = log2(units/mean_GS))
+
+## convert back to wide (each row = sample)
+meta.w <- meta.l %>%
+  pivot_wider(
+    names_from = metric,
+    values_from = div.loss,
+    names_prefix = "div.loss.",
+    id_cols = Study_ID
+  )
+## 138 samples
+
+### add back to meta
+meta <- left_join(meta, meta.w, by = c("Study_ID"))
+
+## save formatted file
+save(meta, file = "./16S_analyses_files/meta_div.Rda")
+
+## pivot_wider for timepoint
+meta.tp <- meta %>%
+  filter(Sample_Type == "Experimental soil") %>%
+  pivot_wider(
+    names_from = timepoint,
+    values_from = c("Shannon","InvSimpson.c",
+                    "div.loss.Shannon",
+                    "div.loss.InvSimpson.c"),
+    id_cols = c("pot_ID","species","Amendment",
+                "spikeFac","treat.rn")
+  ) %>%
+  ## calculate diversity recovery rates (RR)
+  mutate(div.RR.Shannon = 
+    (Shannon_TP2 - Shannon_TP1) / GS_shannon,
+         div.RR.Simpson = 
+    (InvSimpson.c_TP2 - InvSimpson.c_TP1) / GS_simpson
+         )
+
+## add back in trait data
+load(file = "./direct_indirect-combined.Rda") ## loads direct.w
+
+## combine into one
+meta.tp <- left_join(meta.tp, direct.w, by = "pot_ID")
+
+## save formatted file
+save(meta.tp, file = "./16S_analyses_files/meta_div.w.Rda")
+```
+
+### Plots: alpha diversity
+
+```{r plot_alpha}
+## load file
+load(file = "./16S_analyses_files/meta_div.Rda") ## loads meta
 
 ##### Plots (species, timepoint, treatment) #####
 
-### function
-source("./Source_code/plot_alpha_div.func.R")
 
-metric.list <- c("Shannon","InvSimpson.c")
+metric.list <- c("Shannon","InvSimpson.c",
+                 "div.loss.Shannon","div.loss.InvSimpson.c")
+### function
+source("./Source_code/plot-alpha.func.R")
 
 plots.out <- sapply(metric.list, 
-                plot_alpha_div.func, 
-                df = richness.df %>%
+                plot_alpha_div, 
+                df = meta %>%
                   filter(!treat.rn %in% 
                            c("GH: Soil only",
                              "GH: Soil + BS",
-                             "Biosolids",
-                             "Garden Soil")) %>%
+                             "Biosolids")) %>%
                           droplevels(.),
                       USE.NAMES = TRUE, 
                       simplify = FALSE)
@@ -599,173 +624,718 @@ plots.out <- sapply(metric.list,
 plots <- plot_grid(plots.out[["Shannon"]] +
                          labs(y = "Shannon"),
                        plots.out[["InvSimpson.c"]] +
-                         labs(y = "Inv. Simpson (x100)") +
-                         theme(strip.text = element_blank()),
+                         labs(y = "Inv. Simpson (/100)"),
                        ncol = 1,
                        nrow = 2,
                        align = "v",
-                       rel_heights = c(1,0.9))
-
-### save plots
+                       rel_heights = c(1,1))
 plots
-ggsave("./16S_outputs/figs/alpha_div_plots.png",
+### save plots
+ggsave("./16S_analyses_files/figs/plots-alpha_div.png",
+       width=12, height=6, units = "in")
+include_graphics("./16S_analyses_files/figs/plots-alpha_div.png")
+saveRDS(plots, file = "./16S_analyses_files/figs/plots-alpha_div.rds")
+
+## recovery rates
+
+## load file
+load(file = "./16S_analyses_files/meta_div.w.Rda") ## loads meta.tp
+
+##### Plots (species, treatment) #####
+
+### function
+source("./Source_code/plot-alpha.RR.func.R")
+
+metric.list <- c("div.RR.Shannon","div.RR.Simpson")
+
+plots.out <- sapply(metric.list, 
+                plot_alpha_div, 
+                df = meta.tp,
+                USE.NAMES = TRUE, 
+                simplify = FALSE)
+
+### Combine plots
+plots <- plot_grid(plots.out[["div.RR.Shannon"]] +
+                         labs(y = "Shannon \n RR"),
+                       plots.out[["div.RR.Simpson"]] +
+                         labs(y = "Inv. Simpson \n RR") +
+                     theme(
+                       strip.text.x = element_blank()),
+                       ncol = 1,
+                       nrow = 2,
+                       align = "v",
+                       rel_heights = c(1,1))
+plots
+### save plots
+ggsave("./16S_analyses_files/figs/plots-alpha_div.RR.png",
        width=8, height=6, units = "in")
-include_graphics("./16S_outputs/figs/alpha_div_plots.png")
-saveRDS(plots, file = "./16S_outputs/figs/alpha_plot.rds")
+include_graphics("./16S_analyses_files/figs/plots-alpha_div.RR.png")
 ```
 
-### Models: species x amend, species x contam 
+### Models
 
-```{r alpha_div_mods}
-##### M1: species x amendment (for ea. timepoint separately) #####
-load(file = "./16S_outputs/richness.Rda") ## loads richness.df
+#### M1a: species x amend (for ea. timepoint separately)
+
+```{r m1a-species.vs.amend}
+## M1: species x amendment (for ea. timepoint separately)
+## load file
+load(file = "./16S_analyses_files/meta_div.Rda") ## loads meta
 
 ## set contrasts
 options(contrasts=c("contr.sum","contr.poly")) 
 
+# Create output directory if it doesn't exist
+## set output directory
+output_dir <- "./16S_analyses_files/models/"
+if (!dir.exists(output_dir)) {
+  dir.create(output_dir, recursive = TRUE)
+}
 
 ## 1)  species x amendment (for each timepoint sep)
-source("./Source_code/div_amend.func.R")
+source("./Source_code/mod-alpha_species.vs.amend.func.R")
 
-metric.list <- c("Shannon","Shannon","InvSimpson.c","InvSimpson.c")
-time.list <- c("TP1","TP2","TP1","TP2")
-comb.list <- paste0(metric.list, "_", time.list)
+## create list of traits/amends to loop through:
+metric.list <- c("Shannon","InvSimpson.c")
+time.list <- c("TP1", "TP2")
+comb_df <- expand_grid(metrics = metric.list,
+                       times = time.list)
+## Combine into a single string
+comb_df <- comb_df %>%
+  mutate(
+    combs = paste(metrics, times, sep = "_")
+  )
 
-div.out <- mapply(FUN = div_amend.func, 
-                      combs = comb.list, 
-                      times = time.list, 
-                      metrics = metric.list, 
+## run function
+div.out <- mapply(FUN = div_species.vs.amend, 
+                      combs = comb_df$combs, 
+                      times = comb_df$times, 
+                      metrics = comb_df$metrics, 
                       USE.NAMES = TRUE, 
                       SIMPLIFY = FALSE,
-                      MoreArgs = list(df = richness.df %>%
+                      MoreArgs = list(df = meta %>%
                   filter(!species %in% c("no_plant") &
-                           !Spiking_level %in% c("SL1", "SL2"))))
+                           Spiking_level %in% c("SL-0"))))
 
 ## save models
 aov <- lapply(div.out, `[[`, 1) %>%
   bind_rows(.)
-write.csv(aov, "./16S_outputs/models/div_amend_aov.csv",
-          row.names = FALSE)
-emm <- lapply(div.out, `[[`, 2) %>%
-  bind_rows(.)
-write.csv(emm, "./16S_outputs/models/div_amend_emm.csv",
-          row.names = FALSE)
+
+### format
+aov$pval <- signif(aov$`Pr(>F)`, 3)
+aov$sig <- ifelse(aov$pval< 0.001, ", p < 0.001",
+            ifelse(aov$pval < 0.01, paste0(", p = ", aov$pval, "**"),
+            ifelse(aov$pval < 0.05, paste0(", p = ", aov$pval, "*"),
+            ifelse(aov$pval < 0.1, paste0(", p = ", aov$pval, "."),
+                               ", p > 0.1"))))
+aov$stat <- signif(aov$`F value`, 3)
+
+## pivot wider for each model term
+aov.w <- aov %>%
+  select(-c(`F value`,"Pr(>F)","pval", "Sum Sq")) %>%
+  pivot_wider(
+    names_from = term,
+    values_from = c(stat, Df, sig)
+  ) ## 4 traits total, 2 timepoints, 8 rows
+
+## formatting
+aov.f <- aov.w %>%
+  mutate(Amendment = paste0("F [", Df_Amendment, ", ",
+                                Df_Residuals, "] = ", stat_Amendment,
+                                sig_Amendment),
+         Species = paste0("F [", Df_species, ", ",
+                           Df_Residuals, "] = ", stat_species,
+                           sig_species),
+         `Species x Amendment` = 
+                             paste0("F [", 
+                               `Df_species:Amendment`, ", ",
+                                Df_Residuals, "] = ",
+                               `stat_species:Amendment`,
+                               `sig_species:Amendment`)
+         ) %>%
+  select(metric, time, Species, Amendment, `Species x Amendment`)
+
+### CONTRASTS
 cont <- lapply(div.out, `[[`, 3) %>%
   bind_rows(.)
-write.csv(cont, "./16S_outputs/models/div_amend_cont.csv",
+
+## round pval
+cont$pval <- signif(cont$p.value, 3)
+### format
+cont$sig <- ifelse(cont$p.value < 0.001, ", p < 0.001",
+            ifelse(cont$p.value < 0.01, paste0(", p = ", cont$pval, "**"),
+            ifelse(cont$p.value < 0.05, paste0(", p = ", cont$pval, "*"),
+            ifelse(cont$p.value < 0.1, paste0(", p = ", cont$pval, "."),
+                               ", p > 0.1"))))
+## test stats
+cont$stat <- signif(cont$t.ratio, 3)
+
+cont$stat.f <- paste0("t = ", cont$stat, ", ", 
+                    "df = ", cont$df,
+                    cont$sig)
+## estimates
+cont$log2FC <- log2(cont$ratio)
+cont$LCL <-signif(log2(cont$lower.CL), 3)
+cont$UCL <- signif(log2(cont$upper.CL), 3)
+cont$log2FC_CL <- paste0(signif(cont$log2FC, 3), " [",
+                        cont$LCL," to ",
+                        cont$UCL,"]")
+## save as R data file
+save(cont, file = paste0(output_dir, "cont1a-div_species.vs.amend.Rdata"))
+
+## save relevant output for table
+cont.s <- cont %>%
+  filter(p.value < 0.1) %>%
+  mutate(
+    contrast_info = paste0(species, "_", contrast, ": ", 
+                           stat.f, "; ", 
+                           "log2FC [95% CL] = ", log2FC_CL)
+    ) %>%
+  select(metric, time, contrast_info) %>%
+  group_by(metric, time) %>%
+  summarize(
+    sig_contrasts = paste(contrast_info, collapse = " | ")
+    )
+
+## add to anova
+aov.f <- left_join(aov.f, cont.s, by = c("metric","time")) 
+## save
+write.csv(aov.f, file = paste0(output_dir, 
+                               "aov1a-div_species.vs.amend.csv"), 
           row.names = FALSE)
+kable(aov.f)
 
-##### M2: species x contaminant (for ea. amendement + TP separately) #####
-source("./Source_code/div_contam.func.R")
-
-amend.list <- c(rep("RW",4), rep("BS",4))
-metric.list <- rep(c("Shannon","Shannon","InvSimpson.c","InvSimpson.c"),2)
-time.list <- rep(c("TP1","TP2","TP1","TP2"),2)
-comb.list <- paste0(metric.list, "_", amend.list, "-", time.list)
-
-div.out <- mapply(FUN = div_contam.func, 
-                      combs = comb.list, 
-                      times = time.list, 
-                      metrics = metric.list, 
-                      amends = amend.list, 
-                      USE.NAMES = TRUE, 
-                      SIMPLIFY = FALSE,
-                      MoreArgs = list(df = richness.df %>%
-                  filter(!species %in% c("no_plant") &
-                           !treat.rn %in% c("control-0"))))
-
-## save models
-aov <- lapply(div.out, `[[`, 1) %>%
-  bind_rows(.)
-write.csv(aov, "./16S_outputs/models/div_contam_aov.csv",
-          row.names = FALSE)
+## emmeans
 emm <- lapply(div.out, `[[`, 2) %>%
   bind_rows(.)
-write.csv(emm, "./16S_outputs/models/div_contam_emm.csv",
+write.csv(emm, file = paste0(output_dir, 
+                               "emm1a-div_species.vs.amend.csv"),
           row.names = FALSE)
-cont <- lapply(div.out, `[[`, 3) %>%
-  bind_rows(.)
-write.csv(cont, "./16S_outputs/models/div_contam_cont.csv",
-          row.names = FALSE)
+
 ```
 
-### Post-hoc tests (supp fig)
+#### M1b: species x amend (diversity recovery)
+
+```{r m1b-species.vs.amend_RR}
+## M1b: species x amendment
+## load file
+load(file = "./16S_analyses_files/meta_div.w.Rda") ## loads meta.tp
+
+## set contrasts
+options(contrasts=c("contr.sum","contr.poly")) 
+
+# Create output directory if it doesn't exist
+## set output directory
+output_dir <- "./16S_analyses_files/models/"
+if (!dir.exists(output_dir)) {
+  dir.create(output_dir, recursive = TRUE)
+}
+
+## 1)  species x amendment (across timepoints)
+source("./Source_code/mod-alpha.RR_species.vs.amend.func.R")
+
+## create list of traits/amends to loop through:
+metric.list <- c("div.RR.Shannon","div.RR.Simpson")
+
+## run function
+div.out <- sapply(metric.list, 
+                   div.RR_species.vs.amend,
+                   df = meta.tp %>%
+                     filter(spikeFac == "SL-0") %>%
+                     droplevels(.),
+                   simplify = FALSE, 
+                   USE.NAMES = TRUE)
+
+## save models
+aov <- lapply(div.out, `[[`, 1) %>%
+  bind_rows(.)
+
+### format
+aov$pval <- signif(aov$`Pr(>F)`, 3)
+aov$sig <- ifelse(aov$pval< 0.001, ", p < 0.001",
+            ifelse(aov$pval < 0.01, paste0(", p = ", aov$pval, "**"),
+            ifelse(aov$pval < 0.05, paste0(", p = ", aov$pval, "*"),
+            ifelse(aov$pval < 0.1, paste0(", p = ", aov$pval, "."),
+                               ", p > 0.1"))))
+aov$stat <- signif(aov$`F value`, 3)
+
+## pivot wider for each model term
+aov.w <- aov %>%
+  select(-c(`F value`,"Pr(>F)","pval", "Sum Sq")) %>%
+  pivot_wider(
+    names_from = term,
+    values_from = c(stat, Df, sig)
+  ) ## 2 metrics total, 1 timepoint, 2 rows
+
+## formatting
+aov.f <- aov.w %>%
+  mutate(Amendment = paste0("F [", Df_Amendment, ", ",
+                                Df_Residuals, "] = ", stat_Amendment,
+                                sig_Amendment),
+         Species = paste0("F [", Df_species, ", ",
+                           Df_Residuals, "] = ", stat_species,
+                           sig_species),
+         `Species x Amendment` = 
+                             paste0("F [", 
+                               `Df_species:Amendment`, ", ",
+                                Df_Residuals, "] = ",
+                               `stat_species:Amendment`,
+                               `sig_species:Amendment`)
+         ) %>%
+  select(metric, Species, Amendment, `Species x Amendment`)
+
+### CONTRASTS
+cont <- lapply(div.out, `[[`, 3) %>%
+  bind_rows(.)
+
+## round pval
+cont$pval <- signif(cont$p.value, 3)
+### format
+cont$sig <- ifelse(cont$p.value < 0.001, ", p < 0.001",
+            ifelse(cont$p.value < 0.01, paste0(", p = ", cont$pval, "**"),
+            ifelse(cont$p.value < 0.05, paste0(", p = ", cont$pval, "*"),
+            ifelse(cont$p.value < 0.1, paste0(", p = ", cont$pval, "."),
+                               ", p > 0.1"))))
+## test stats
+cont$stat <- signif(cont$t.ratio, 3)
+
+cont$stat.f <- paste0("t = ", cont$stat, ", ", 
+                    "df = ", cont$df,
+                    cont$sig)
+## estimates
+cont$log2FC <- log2(cont$ratio)
+cont$LCL <-signif(log2(cont$lower.CL), 3)
+cont$UCL <- signif(log2(cont$upper.CL), 3)
+cont$log2FC_CL <- paste0(signif(cont$log2FC, 3), " [",
+                        cont$LCL," to ",
+                        cont$UCL,"]")
+## save as R data file
+save(cont, file = paste0(output_dir, "cont1b-div.RR_species.vs.amend.Rdata"))
+
+## save relevant output for table
+cont.s <- cont %>%
+  filter(p.value < 0.1) %>%
+  mutate(
+    contrast_info = paste0(species, "_", contrast, ": ", 
+                           stat.f, "; ", 
+                           "log2FC [95% CL] = ", log2FC_CL)
+    ) %>%
+  select(metric, contrast_info) %>%
+  group_by(metric) %>%
+  summarize(
+    sig_contrasts = paste(contrast_info, collapse = " | ")
+    )
+
+## add to anova
+aov.f <- left_join(aov.f, cont.s, by = c("metric")) 
+## save
+write.csv(aov.f, paste0(output_dir, "aov1b-div.RR_species.vs.amend.csv"), 
+          row.names = FALSE)
+kable(aov.f)
+
+## emmeans
+emm <- lapply(div.out, `[[`, 2) %>%
+  bind_rows(.)
+write.csv(emm, paste0(output_dir, "emm1b-div.RR_species.vs.amend.csv"),
+          row.names = FALSE)
+
+```
+
+#### M2a: species x contaminant (for ea. amendement + TP separately) 
+
+```{r m2a-species.vs.contam}
+## M2: species x contam (for ea. timepoint and amend separately)
+## load file
+load(file = "./16S_analyses_files/meta_div.Rda") ## loads meta
+
+## set contrasts
+options(contrasts=c("contr.sum","contr.poly")) 
+
+## var lists
+amend.list <- c("RW","BS")
+metric.list <- c("Shannon",
+                 "InvSimpson.c")
+time.list <- c("TP1", "TP2")
+comb_df <- expand_grid(metrics = metric.list,
+                       times = time.list,
+                       amends = amend.list)
+## Combine into a single string
+comb_df <- comb_df %>%
+  mutate(
+    combs = paste(metrics, times, amends, sep = "_")
+  )
+
+# Create output directory if it doesn't exist
+## set output directory
+output_dir <- "./16S_analyses_files/models/"
+if (!dir.exists(output_dir)) {
+  dir.create(output_dir, recursive = TRUE)
+}
+
+source("./Source_code/mod-alpha_species.vs.contam.func.R")
+
+### run function
+div.out <- mapply(FUN = div_species.vs.contam, 
+                      combs = comb_df$combs, 
+                      times = comb_df$times, 
+                      metrics = comb_df$metrics, 
+                      amends = comb_df$amends, 
+                      USE.NAMES = TRUE, 
+                      SIMPLIFY = FALSE,
+                      MoreArgs = list(df = meta %>%
+                  filter(!species %in% c("no_plant") &
+                           !Amendment %in% c("control"))))
+
+## save models
+aov <- lapply(div.out, `[[`, 1) %>%
+  bind_rows(.)
+### format
+aov$pval <- signif(aov$`Pr(>F)`, 3)
+aov$sig <- ifelse(aov$pval< 0.001, ", p < 0.001",
+            ifelse(aov$pval < 0.01, paste0(", p = ", aov$pval, "**"),
+            ifelse(aov$pval < 0.05, paste0(", p = ", aov$pval, "*"),
+            ifelse(aov$pval < 0.1, paste0(", p = ", aov$pval, "."),
+                               ", p > 0.1"))))
+aov$stat <- signif(aov$`F value`, 3)
+
+## pivot wider for each model term
+aov.w <- aov %>%
+  select(-c(`F value`,"Pr(>F)","pval", "Sum Sq")) %>%
+  pivot_wider(
+    names_from = term,
+    values_from = c(stat, Df, sig)
+  ) ## 4 traits total, 2 timepoints, 2 amendments = 16 rows
+
+## formatting
+aov.f <- aov.w %>%
+  mutate(`Spiking level (SL)` = paste0("F [", Df_spikeFac, ", ",
+                                Df_Residuals, "] = ", stat_spikeFac,
+                                sig_spikeFac),
+         Species = paste0("F [", Df_species, ", ",
+                           Df_Residuals, "] = ", stat_species,
+                           sig_species),
+         `Species x SL` = paste0("F [", 
+                               `Df_species:spikeFac`, ", ",
+                                Df_Residuals, "] = ",
+                               `stat_species:spikeFac`,
+                               `sig_species:spikeFac`)
+         ) %>%
+  select(metric, Amendment = amend, time, Species, 
+         `Spiking level (SL)`, `Species x SL`)
+
+### CONTRASTS
+cont <- lapply(div.out, `[[`, 3) %>%
+  bind_rows(.)
+
+## round pval
+cont$pval <- signif(cont$p.value, 3)
+### format
+cont$sig <- ifelse(cont$p.value < 0.001, ", p < 0.001",
+            ifelse(cont$p.value < 0.01, paste0(", p = ", cont$pval, "**"),
+            ifelse(cont$p.value < 0.05, paste0(", p = ", cont$pval, "*"),
+            ifelse(cont$p.value < 0.1, paste0(", p = ", cont$pval, "."),
+                               ", p > 0.1"))))
+## test stats
+cont$stat <- signif(cont$t.ratio, 3)
+
+cont$stat.f <- paste0("t = ", cont$stat, ", ", 
+                    "df = ", cont$df,
+                    cont$sig)
+## estimates
+cont$Est_r <- signif(cont$estimate, 3)
+cont$LCL <- ifelse(is.na(cont$lower.CL) == TRUE,
+                   signif(cont$asymp.LCL, 3),
+                   signif(cont$lower.CL, 3))
+cont$UCL <- ifelse(is.na(cont$upper.CL) == TRUE,
+                   signif(cont$asymp.UCL, 3),
+                   signif(cont$upper.CL, 3))
+cont$Est_CL <- paste0(cont$Est_r, " [",
+                        cont$LCL," to ",
+                        cont$UCL,"]")
+## save as R data file
+save(cont, file = paste0(output_dir, "cont2a-div_species.vs.contam.Rdata"))
+
+## save relevant output for table
+cont.s <- cont %>%
+  filter(p.value < 0.1) %>%
+  mutate(
+    contrast_info = paste0(species, "_", contrast, ": ", 
+                           stat.f, "; ", 
+                           "Est. [95% CL] = ", Est_CL)
+    ) %>%
+  select(metric, time, Amendment = amend, contrast_info) %>%
+  group_by(metric, time, Amendment) %>%
+  summarize(
+    sig_contrasts = paste(contrast_info, collapse = " | ")
+    )
+
+## species comps
+### CONTRASTS
+cont.pw <- lapply(div.out, `[[`, 4) %>%
+  bind_rows(.)
+
+## round pval
+cont.pw$pval <- signif(cont.pw$p.value, 3)
+### format
+cont.pw$sig <- ifelse(cont.pw$p.value < 0.001, ", p < 0.001",
+            ifelse(cont.pw$p.value < 0.01, paste0(", p = ", cont.pw$pval, "**"),
+            ifelse(cont.pw$p.value < 0.05, paste0(", p = ", cont.pw$pval, "*"),
+            ifelse(cont.pw$p.value < 0.1, paste0(", p = ", cont.pw$pval, "."),
+                               ", p > 0.1"))))
+## test stats
+cont.pw$stat <- signif(cont.pw$t.ratio, 3)
+
+cont.pw$stat.f <- paste0("t = ", cont.pw$stat, ", ", 
+                    "df = ", cont.pw$df,
+                    cont.pw$sig)
+## estimates
+cont.pw$log2FC <- signif(log2(cont.pw$ratio), 3)
+cont.pw$LCL <- signif(log2(cont.pw$lower.CL), 3)
+cont.pw$UCL <- signif(log2(cont.pw$upper.CL), 3)
+cont.pw$log2FC_CL <- paste0(cont.pw$log2FC, " [",
+                        cont.pw$LCL," to ",
+                        cont.pw$UCL,"]")
+
+## save relevant output for table
+cont.pw.s <- cont.pw %>%
+  filter(p.value < 0.1) %>%
+  mutate(
+    contrast_info = paste0(contrast, ": ",
+                           stat.f, "; ", 
+                           "log2FC [95% CL] = ", log2FC_CL)
+    ) %>%
+  select(metric, time, Amendment = amend, contrast_info) %>%
+  group_by(metric, time, Amendment) %>%
+  summarize(
+    sig_conts.species = paste(contrast_info, collapse = " | ")
+    )
+
+## add to anova
+aov.f <- left_join(aov.f, cont.s, by = c("metric","time","Amendment")) 
+aov.f <- left_join(aov.f, cont.pw.s, by = c("metric","time","Amendment")) 
+## save
+write.csv(aov.f, paste0(output_dir, "aov2-alpha_contam.csv"), 
+          row.names = FALSE)
+
+## emmeans
+emm <- lapply(div.out, `[[`, 2) %>%
+  bind_rows(.)
+write.csv(emm, paste0(output_dir, "emm2a-div_species.vs.contam.csv"),
+          row.names = FALSE)
+
+```
+
+#### M2b: species x contaminant (diversity recovery) 
+
+```{r m2b-species.vs.contam_RR}
+## load file
+load(file = "./16S_analyses_files/meta_div.w.Rda") ## loads meta.tp
+
+## set contrasts
+options(contrasts=c("contr.sum","contr.poly")) 
+
+## var lists
+amend.list <- c("RW","BS")
+metric.list <- c("div.RR.Shannon",
+                 "div.RR.Simpson")
+comb_df <- expand_grid(metrics = metric.list,
+                       amends = amend.list)
+## Combine into a single string
+comb_df <- comb_df %>%
+  mutate(
+    combs = paste(metrics, amends, sep = "_")
+  )
+
+# Create output directory if it doesn't exist
+## set output directory
+output_dir <- "./16S_analyses_files/models/"
+if (!dir.exists(output_dir)) {
+  dir.create(output_dir, recursive = TRUE)
+}
+
+source("./Source_code/mod-alpha.RR_species.vs.contam.func.R")
+
+### run function
+div.out <- mapply(FUN = div.RR_species.vs.contam, 
+                      combs = comb_df$combs, 
+                      metrics = comb_df$metrics, 
+                      amends = comb_df$amends, 
+                      USE.NAMES = TRUE, 
+                      SIMPLIFY = FALSE,
+                      MoreArgs = list(df = meta.tp %>%
+                                        filter(
+                                          !Amendment %in% c("control")
+                                        ))
+                  )
+
+## save models
+aov <- lapply(div.out, `[[`, 1) %>%
+  bind_rows(.)
+### format
+aov$pval <- signif(aov$`Pr(>F)`, 3)
+aov$sig <- ifelse(aov$pval< 0.001, ", p < 0.001",
+            ifelse(aov$pval < 0.01, paste0(", p = ", aov$pval, "**"),
+            ifelse(aov$pval < 0.05, paste0(", p = ", aov$pval, "*"),
+            ifelse(aov$pval < 0.1, paste0(", p = ", aov$pval, "."),
+                               ", p > 0.1"))))
+aov$stat <- signif(aov$`F value`, 3)
+
+## pivot wider for each model term
+aov.w <- aov %>%
+  select(-c(`F value`,"Pr(>F)","pval", "Sum Sq")) %>%
+  pivot_wider(
+    names_from = term,
+    values_from = c(stat, Df, sig)
+  ) ## 4 traits total, 2 timepoints, 2 amendments = 16 rows
+
+## formatting
+aov.f <- aov.w %>%
+  mutate(`Spiking level (SL)` = paste0("F [", Df_spikeFac, ", ",
+                                Df_Residuals, "] = ", stat_spikeFac,
+                                sig_spikeFac),
+         Species = paste0("F [", Df_species, ", ",
+                           Df_Residuals, "] = ", stat_species,
+                           sig_species),
+         `Species x SL` = paste0("F [", 
+                               `Df_species:spikeFac`, ", ",
+                                Df_Residuals, "] = ",
+                               `stat_species:spikeFac`,
+                               `sig_species:spikeFac`)
+         ) %>%
+  select(metric, Amendment = amend, Species, 
+         `Spiking level (SL)`, `Species x SL`)
+
+### CONTRASTS
+cont <- lapply(div.out, `[[`, 3) %>%
+  bind_rows(.)
+
+## round pval
+cont$pval <- signif(cont$p.value, 3)
+### format
+cont$sig <- ifelse(cont$p.value < 0.001, ", p < 0.001",
+            ifelse(cont$p.value < 0.01, paste0(", p = ", cont$pval, "**"),
+            ifelse(cont$p.value < 0.05, paste0(", p = ", cont$pval, "*"),
+            ifelse(cont$p.value < 0.1, paste0(", p = ", cont$pval, "."),
+                               ", p > 0.1"))))
+## test stats
+cont$stat <- signif(cont$t.ratio, 3)
+
+cont$stat.f <- paste0("t = ", cont$stat, ", ", 
+                    "df = ", cont$df,
+                    cont$sig)
+## estimates
+cont$Est_r <- signif(cont$estimate, 3)
+cont$LCL <- ifelse(is.na(cont$lower.CL) == TRUE,
+                   signif(cont$asymp.LCL, 3),
+                   signif(cont$lower.CL, 3))
+cont$UCL <- ifelse(is.na(cont$upper.CL) == TRUE,
+                   signif(cont$asymp.UCL, 3),
+                   signif(cont$upper.CL, 3))
+cont$Est_CL <- paste0(cont$Est_r, " [",
+                        cont$LCL," to ",
+                        cont$UCL,"]")
+## save as R data file
+save(cont, file = paste0(output_dir, "cont2b-div.RR_species.vs.contam.Rdata"))
+
+## save relevant output for table
+cont.s <- cont %>%
+  filter(p.value < 0.1) %>%
+  mutate(
+    contrast_info = paste0(species, "_", contrast, ": ", 
+                           stat.f, "; ", 
+                           "Est. [95% CL] = ", Est_CL)
+    ) %>%
+  select(metric, Amendment = amend, contrast_info) %>%
+  group_by(metric, Amendment) %>%
+  summarize(
+    sig_contrasts = paste(contrast_info, collapse = " | ")
+    )
+
+## add to anova
+aov.f <- left_join(aov.f, cont.s, by = c("metric","Amendment")) 
+## save
+write.csv(aov.f, paste0(output_dir, "aov2b-div.RR_species.vs.contam.csv"), 
+          row.names = FALSE)
+kable(aov.f)
+
+## emmeans
+emm <- lapply(div.out, `[[`, 2) %>%
+  bind_rows(.)
+write.csv(emm, paste0(output_dir, "emm2b-div.RR_species.vs.contam.csv"),
+          row.names = FALSE)
+
+```
+
+#### Post-hoc tests (supp fig)
 
 ```{r alpha_div_PHT}
 ## figures (contrasts)
-cont <- read_csv("./16S_outputs/div_amend_cont.csv")
+load(file = 
+       "./16S_analyses_files/models/cont1a-div_species.vs.amend.Rdata") ## loads cont
 
+## formatting
 cont$amend <- ifelse(grepl("BS", cont$contrast, fixed = FALSE),
                       "BS", "RW")
-
 cont$amend <- factor(cont$amend,
                       levels = c("RW",
                                  "BS"))
-
 cont$species <- factor(cont$species,
                        levels = c("L",
                                   "R",
                                   "P"))
+cont$time <- factor(cont$time,
+                       levels = c("TP1","TP2"))
 
-cont$species.tp <- paste0(cont$species, "_",cont$time)
-cont$species.tp <- factor(cont$species.tp, levels = c(
-  "L_TP1","L_TP2", "R_TP1","R_TP2", "P_TP1","P_TP2"
-))
+## run function for each metric
+source("./Source_code/plot-alpha_amend_PHT.func.R")
 
-cont$metric <- factor(cont$metric, 
-                      levels = c(
-  "Shannon","InvSimpson.c"))
+## metrics
+metric.list <- c("Shannon","InvSimpson.c")
 
-### rename traits
-metric_names <- c(
-  Shannon = 'Shannon',
-  InvSimpson.c = 'Inv. Simpson'
-)
-
-species.tp_names <- c(
-  L_TP1 = 'Lettuce @ 1wk PP',
-   L_TP2 = 'Lettuce @ harvest',
-  R_TP1 = 'Radish @ 1wk PP',
-  R_TP2 = 'Radish @ harvest',
-   P_TP1 = 'Pea @ 1wk PP',
-  P_TP2 = 'Pea @ harvest'
-)
-
-##### Contrasts (amendment type) #####
-M1_plot <- ggplot(data = cont,
-   aes(x = amend, 
-       y = log2(ratio), 
-       colour = amend)) +
-  geom_pointrange(aes(ymin = log2(lower.CL),
-                      ymax = log2(upper.CL)),
-                  position = position_dodge(0.5)) +
-  geom_hline(aes(yintercept = 0),
-             linetype = 2) +
-  coord_flip() +
-   scale_colour_manual(values = c(
-                                  "blue",
-                                 "#B06500")) +
-  facet_grid(metric~species.tp, scales = "fixed",
-             labeller = labeller(metric = metric_names,
-                                 species.tp = species.tp_names)) +
-  labs(x = NULL, y = expression(log[2]~"Fold Change (95% CL)")) +
-  guides(colour = "none") +
-  theme_bw() +
-  theme(
-    axis.text = element_text(size = 12),
-    axis.title.x = element_text(size = 14),
-    strip.text = element_text(size = 12, face = "bold"),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-  )
-M1_plot
-
+## run
+plot.out <- sapply(metric.list, 
+                plot_div_species.vs.amend, 
+                df = cont,
+                      USE.NAMES = TRUE, 
+                      simplify = FALSE)
+## combine
+plots_amend <- plot_grid(
+  plot.out[["Shannon"]] + 
+    labs(x = "Shannon"),
+  plot.out[["InvSimpson.c"]] +
+    labs(x = "Inv. Simpson",
+         y = expression(log[2]~"Fold Change (95% CL)")),
+  ncol = 1,
+  nrow = 2,
+  align = "v",
+  labels = c("A", "C"))
+plots_amend
 
 ## M2
 
 ## emms (emmeans)
-emms <- read_csv("./16S_outputs/div_contam_emm.csv")
+emms <- 
+  read_csv("./16S_analyses_files/models/emm2a-div_species.vs.contam.csv")
 
+## linear contrasts (to get sig linear trends)
+load(file = 
+       "./16S_analyses_files/models/cont2a-div_species.vs.contam.Rdata") ## loads cont
+
+## include both quadratic & linear terms
+cont.w <- cont %>%
+  pivot_wider(
+    names_from = contrast,
+    values_from = c("Est_CL", "pval"),
+    id_cols =  c("species","metric","time","amend")
+  )
+
+## combine with emms
+emms <- emms %>%
+  left_join(
+    cont.w,
+    by = c("species","amend","time","metric")
+  )
+
+## formatting
 emms$amend <- factor(emms$amend,
                       levels = c("RW",
                                  "BS"))
@@ -774,177 +1344,576 @@ emms$species <- factor(emms$species,
                        levels = c("L",
                                   "R",
                                   "P"))
+emms$spikeFac <- factor(emms$spikeFac, 
+  levels = c(
+  "SL-0","SL-1","SL-2"))
 
-emms$species.tp <- paste0(emms$species, "_", emms$time)
+## run function for each metric
+source("./Source_code/plot-alpha_contam_PHT.func.R")
 
-emms$species.tp <- paste0(emms$species, "_",emms$time)
-emms$species.tp <- factor(emms$species.tp, levels = c(
-  "L_TP1","L_TP2", "R_TP1","R_TP2", "P_TP1","P_TP2"
-))
+## metrics
+metric.list <- c("Shannon","InvSimpson.c")
 
-emms$spikeFac <- factor(emms$spikeFac, levels = c(
-  "US","SL1","SL2"))
+## run
+plot.out <- sapply(metric.list, 
+                plot_div_species.vs.contam, 
+                df = emms,
+                      USE.NAMES = TRUE, 
+                      simplify = FALSE)
+## combine
+plots_contam <- plot_grid(
+  plot.out[["Shannon"]] + 
+    labs(y = "EM mean (95% CL)"),
+  plot.out[["InvSimpson.c"]] +
+    labs(y = "EM mean (95% CL)",
+         x = "Contaminant spiking level"),
+  ncol = 1,
+  nrow = 2,
+  align = "v",
+  labels = c("B", "D"))
+plots_contam
 
-emms$metric <- factor(emms$metric, 
-                      levels = c(
-  "Shannon","InvSimpson.c"))
-
-
-##### Contrasts (contamination level) #####
-M2_plot <- ggplot(data = emms,
-   aes(x = factor(spikeFac), 
-       y = emmean, 
-       colour = amend)) +
-  geom_line(aes(group = amend),
-            position = position_dodge(0.5)) +
-  geom_pointrange(aes(ymin = lower.CL,
-                      ymax = upper.CL),
-                  position = position_dodge(0.5)) +
-   scale_colour_manual(values = c(
-                                  "blue",
-                                 "#B06500")) +
-  scale_x_discrete(labels = c("0","1","2")) +
-  facet_grid(metric~species.tp, scales = "free",
-             labeller = labeller(metric = metric_names,
-                                 species.tp = species.tp_names)) +
-  labs(y = expression("EM mean (95% CL)"), 
-       x = "Contaminant spiking level") +
-  guides(colour = "none") +
-  theme_bw() +
-  theme(
-    axis.text = element_text(size = 12),
-    axis.title.x = element_text(size = 14),
-    axis.title.y = element_text(size = 14),
-    strip.text.x = element_blank(),
-    strip.text.y = element_text(size = 12, face = "bold"),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-  )
-M2_plot
-
-plots <- plot_grid(M1_plot, M2_plot,
-                   ncol = 1,
-                   nrow = 2,
-                   align = "v",
+## combine them together
+plots <- plot_grid(plots_amend, plots_contam,
+                   ncol = 2,
+                   nrow = 1,
+                   align = "h",
                    labels = NULL)
 plots
 
-ggsave("./16S_outputs/models/alpha_div_model_plots.png", 
-       width = 11, height = 7, 
+ggsave("./16S_analyses_files/figs/plots-div_PHT.png", 
+       width = 10, height = 6, 
        units = "in")
 ```
 
-### Alpha diversity vs plant traits: peas
+#### Post-hoc tests (supp fig - div recovery)
 
-```{r alpha_div_trait_corr}
-load(file = "./16S_outputs/richness.Rda") ## loads richness.df
+```{r alpha_div.RR_PHT}
+## figures (contrasts)
+load(file = 
+       "./16S_analyses_files/models/cont1b-div.RR_species.vs.amend.Rdata") ## loads cont
 
-### filter to P, make wide
-richness.pea.w_metric <- richness.df %>%
-  filter(species == "P") %>%
-  droplevels(.) %>%
+## formatting
+cont$amend <- ifelse(grepl("BS", cont$contrast, fixed = FALSE),
+                      "BS", "RW")
+cont$amend <- factor(cont$amend,
+                      levels = c("RW",
+                                 "BS"))
+cont$species <- factor(cont$species,
+                       levels = c("L",
+                                  "R",
+                                  "P"))
+
+## run function for each metric
+source("./Source_code/plot-alpha.RR_amend_PHT.func.R")
+
+## metrics
+metric.list <- c("div.RR.Shannon","div.RR.Simpson")
+
+## run
+plot.out <- sapply(metric.list, 
+                plot_div.RR_species.vs.amend, 
+                df = cont,
+                      USE.NAMES = TRUE, 
+                      simplify = FALSE)
+## combine
+plots_amend <- plot_grid(
+  plot.out[["div.RR.Shannon"]] + 
+    labs(x = "Shannon \n RR"),
+  plot.out[["div.RR.Simpson"]] +
+    labs(x = "Inv. Simpson \n RR",
+         y = expression(log[2]~"Fold Change (95% CL)")),
+  ncol = 1,
+  nrow = 2,
+  align = "v",
+  labels = c("A", "C"))
+plots_amend
+
+## M2
+
+## emms (emmeans)
+emms <- 
+  read_csv("./16S_analyses_files/models/emm2b-div.RR_species.vs.contam.csv")
+
+## linear contrasts (to get sig linear trends)
+load(file = 
+       "./16S_analyses_files/models/cont2b-div.RR_species.vs.contam.Rdata") ## loads cont
+
+## include both quadratic & linear terms
+cont.w <- cont %>%
   pivot_wider(
-    names_from = timepoint,
-    values_from = c("Shannon", "InvSimpson"),
-    id_cols = pot_ID
+    names_from = contrast,
+    values_from = c("Est_CL", "pval"),
+    id_cols =  c("species","metric","amend")
   )
 
-richness.pea.w_traits <- richness.df %>%
-  filter(species == "P" & 
-           timepoint == "TP2") %>%
-  droplevels(.)
-
-richness.pea.w <- left_join(richness.pea.w_traits, 
-                            richness.pea.w_metric,
-                            by = "pot_ID")
-
-richness.pea.l <- richness.pea.w %>%
-  pivot_longer(
-    cols = c(resp_norm_plant_height4:resp_norm_shoot_moisture),
-    names_to = "trait",
-    values_to = "units"
+## combine w/ emmeans
+emms <- emms %>%
+  left_join(
+    cont.w,
+    by = c("species","amend","metric")
   )
 
-## create list of traits/amends to loop through:
-metric.list <- c("Shannon_TP1","Shannon_TP2",
-                 "InvSimpson_TP1","InvSimpson_TP2")
+## formatting
+emms$amend <- factor(emms$amend,
+                      levels = c("RW",
+                                 "BS"))
 
-## source the function:
-source("./Source_code/plot_div_vs_trait.func.R")
+emms$species <- factor(emms$species,
+                       levels = c("L",
+                                  "R",
+                                  "P"))
+emms$spikeFac <- factor(emms$spikeFac, 
+  levels = c(
+  "SL-0","SL-1","SL-2"))
 
-plots.out <- sapply(metric.list,
-                 plot_div_vs_trait.func,
-                 df = richness.pea.l,
-                 simplify = FALSE,
-                 USE.NAMES = TRUE)
+## run function for each metric
+source("./Source_code/plot-alpha.RR_contam_PHT.func.R")
 
-### Combine plots
-plots_Shannon <- plot_grid(plots.out[["Shannon_TP1"]] +
-                     labs(y = "Shannon @ 1wk PP"),
-                   plots.out[["Shannon_TP2"]] +
-                     labs(y = "Shannon @ harvest"),
+## metrics
+metric.list <- c("div.RR.Shannon","div.RR.Simpson")
+
+## run
+plot.out <- sapply(metric.list, 
+                plot_div.RR_species.vs.contam, 
+                df = emms,
+                      USE.NAMES = TRUE, 
+                      simplify = FALSE)
+## combine
+plots_contam <- plot_grid(
+  plot.out[["div.RR.Shannon"]] + 
+    labs(y = "EM mean (95% CL)"),
+  plot.out[["div.RR.Simpson"]] +
+    labs(y = "EM mean (95% CL)",
+         x = "Contaminant level"),
+  ncol = 1,
+  nrow = 2,
+  align = "v",
+  labels = c("B", "D"))
+plots_contam
+
+## combine them together
+plots <- plot_grid(plots_amend, plots_contam,
                    ncol = 2,
                    nrow = 1,
                    align = "h",
                    labels = NULL)
+plots
 
-plots_Simpson <- plot_grid(plots.out[["InvSimpson_TP1"]] +
-                     labs(y = "Inv. Simpson @ 1wk PP"),
-                   plots.out[["InvSimpson_TP2"]] +
-                     labs(y = "Inv. Simpson @ harvest"),
-                   ncol = 2,
-                   nrow = 1,
-                   align = "h",
-                   labels = NULL)
+ggsave("./16S_analyses_files/figs/plots-div.RR_PHT.png", 
+       width = 10, height = 6, 
+       units = "in")
+```
 
-### save plots
-plots_Shannon
-ggsave("./16S_outputs/figs/Shannon_v_traits_plots.png",
-       width=12, height=12, units = "in")
-include_graphics("./16S_outputs/figs/Shannon_v_traits_plots.png")
+#### Kruskal Wallis tests
 
-plots_Simpson
-ggsave("./16S_outputs/figs/Simpson_v_traits_plots.png",
-       width=12, height=12, units = "in")
-include_graphics("./16S_outputs/figs/Simpson_v_traits_plots.png")
+Non-parametric test, with fewer assumptions
+* Does not assume normality
+* Compares ranked values across groups
+* Robust to outliers and non-homogenous variances
 
-## linear models to get regression coeffs
+```{r Kruskal-Wallis}
+## load file
+load(file = "./16S_analyses_files/meta_div.Rda") ## loads meta
 
-## traits to run through
-trait.list_nt <- rep(c("plant_height4",
-                "chlorophyll_content4_mean", 
-                "leaf_number2",
-                "wet_shoot_weight", 
-                "dry_shoot_weight",
-                "wet_root_weight", 
-                "dry_root_weight",
-                "dry_total_weight",
-                "shoot_root_ratio",
-                "shoot_moisture"),4)
+## impact of species (control-0 only)
 
-trait.list <- paste0("resp_norm_", trait.list_nt)
+## source
+source("./Source_code/mod-alpha_species_KW.func.R")
 
-## create list of traits/amends to loop through:
-metric.list <- c(rep("Shannon_TP1",10), rep("Shannon_TP2",10),
-                 rep("InvSimpson_TP1",10), rep("InvSimpson_TP2",10))
-comb.list <- paste0(trait.list, ", ", metric.list)
+## var lists
+metric.list <- c("Shannon",
+                 "InvSimpson.c")
+time.list <- c("TP1", "TP2")
+comb_df <- expand_grid(metrics = metric.list,
+                       times = time.list)
+## Combine into a single string
+comb_df <- comb_df %>%
+  mutate(
+    combs = paste(metrics, times, sep = "_")
+  )
 
-## source function
-source("./Source_code/div_vs_trait.func.R")
-
-lm.out <- mapply(FUN = div_vs_trait.func, 
-                      combs = comb.list, 
-                      traits = trait.list, 
-                      metrics = metric.list, 
+### run function
+div.out <- mapply(FUN = div_species_KW, 
+                      combs = comb_df$combs, 
+                      times = comb_df$times, 
+                      metrics = comb_df$metrics, 
                       USE.NAMES = TRUE, 
                       SIMPLIFY = FALSE,
-                      MoreArgs = list(df = richness.pea.w)
-                   )
-### coeffs
-lm_coeffs <- lapply(lm.out, `[[`, 1) %>%
+                      MoreArgs = list(df = meta %>%
+                  filter(!species %in% c("no_plant") &
+                           treat.rn %in% c("control-0"))))
+
+## combine dfs
+KW_species_df <- lapply(div.out, `[[`, 1) %>%
   bind_rows(.)
-write.csv(lm_coeffs, "./16S_outputs/models/div_vs_traits-lm_coeffs.csv", 
-          row.names = TRUE)
+write.csv(KW_species_df, "./16S_analyses_files/models/mod-div_species_KW.csv",
+          row.names = FALSE)
+
+## impact of amendment (SL-0 only) within ea species
+
+## source
+source("./Source_code/mod-alpha_amend_KW.func.R")
+
+## var lists
+metric.list <- c("Shannon",
+                 "InvSimpson.c")
+time.list <- c("TP1", "TP2")
+crop.list <- c("L", "R", "P")
+comb_df <- expand_grid(metrics = metric.list,
+                       times = time.list,
+                       crops = crop.list)
+## Combine into a single string
+comb_df <- comb_df %>%
+  mutate(
+    combs = paste(metrics, times, crops, sep = "_")
+  )
+
+### run function
+div.out <- mapply(FUN = div_amend_KW, 
+                      combs = comb_df$combs, 
+                      times = comb_df$times, 
+                      metrics = comb_df$metrics, 
+                      crops = comb_df$crops, 
+                      USE.NAMES = TRUE, 
+                      SIMPLIFY = FALSE,
+                      MoreArgs = list(df = meta %>%
+                  filter(!species %in% c("no_plant") &
+                           Spiking_level %in% c("SL-0"))))
+
+## combine dfs
+KW_amend_df <- lapply(div.out, `[[`, 1) %>%
+  bind_rows(.)
+write.csv(KW_amend_df, "./16S_analyses_files/models/mod-div_amend_KW.csv",
+          row.names = FALSE)
+
+## impact of contaminant concentration (within amends, exclude control)
+
+## source
+source("./Source_code/mod-alpha_contam_KW.func.R")
+
+## var lists
+amend.list <- c("RW","BS")
+metric.list <- c("Shannon",
+                 "InvSimpson.c")
+time.list <- c("TP1", "TP2")
+crops.list <- c("L", "R", "P")
+comb_df <- expand_grid(metrics = metric.list,
+                       times = time.list,
+                       amends = amend.list,
+                       crops = crops.list)
+## Combine into a single string
+comb_df <- comb_df %>%
+  mutate(
+    combs = paste(metrics, times, crops, amends, sep = "_")
+  )
+
+### run function
+div.out <- mapply(FUN = div_contam_KW, 
+                      combs = comb_df$combs, 
+                      times = comb_df$times, 
+                      metrics = comb_df$metrics, 
+                      crops = comb_df$crops,
+                      amends = comb_df$amends, 
+                      USE.NAMES = TRUE, 
+                      SIMPLIFY = FALSE,
+                      MoreArgs = list(df = meta %>%
+                  filter(!species %in% c("no_plant") &
+                           !Amendment %in% c("control"))))
+
+## combine dfs
+KW_contam_df <- lapply(div.out, `[[`, 1) %>%
+  bind_rows(.)
+write.csv(KW_contam_df, "./16S_analyses_files/models/mod-div_contam_KW.csv",
+          row.names = FALSE)
+```
+
+#### M3: Alpha diversity vs plant traits (direct + indirect)
+
+Does microbiome diversity correlate with: 
+* Plant traits -- direct exposure experiment
+* Microbiome impacts on plant traits -- microbiome inoculation experiment
+
+
+* Shannon diversity being crop-dependent suggests that plant identity is shaping 
+microbial richness/evenness early and consistently.
+* The Inverse Simpson × timepoint interaction implies that dominance patterns are 
+shifting over time, potentially due to stress, competition, or microbial turnover.
+
+```{r alpha_vs_trait.corr}
+load(file = "./16S_analyses_files/meta_div.Rda") ## loads meta
+
+## traits to iterate through
+trait.list <- c("direct.dry_shoot_weight",
+                "direct.shoot_root_ratio",
+                "direct.per_plant_weight",
+                "direct.shoot_moisture",
+                "direct.germination_perc",
+                "direct.survival_perc.corr",
+                ## pea-only traits
+                "direct.dry_pod_weight.corr",
+                "direct.infected_peas_perc.corr",
+                "direct.NDVI_mean",
+                "direct.pods",
+                "direct.flowers")
+            
+## create long df for traits 
+meta.l <- meta %>%
+  filter(species != "no_plant") %>%
+  pivot_longer(
+    cols = all_of(trait.list),
+    names_to = "trait",
+    values_to = "units"
+  ) ## 11 traits by 126 samples = 1386 rows
+
+
+## create list of traits/amends to loop through:
+metric.list <- c("Shannon","InvSimpson.c")
+time.list <- c("TP1", "TP2")
+comb_df <- expand_grid(metrics = metric.list, 
+                       traits = trait.list,
+                       times = time.list)
+## Combine into a single string
+comb_df <- comb_df %>%
+  mutate(
+    combs = paste(metrics, traits, times, sep = "_")
+  ) 
+
+## ANOVAs to test for interactions (species x diversity)
+
+# Create output directory if it doesn't exist
+## set output directory
+output_dir <- "./16S_analyses_files/models/"
+if (!dir.exists(output_dir)) {
+  dir.create(output_dir, recursive = TRUE)
+}
+
+## source function
+source("./Source_code/mod-alpha.vs.trait_aov.func.R")
+
+lm.out <- mapply(FUN = mod_alpha.vs.trait_aov, 
+                      combs = comb_df$combs, 
+                      traits = comb_df$traits, 
+                      metrics = comb_df$metrics, 
+                      times = comb_df$times,
+                      USE.NAMES = TRUE, 
+                      SIMPLIFY = FALSE,
+                      MoreArgs = list(df = meta.l)
+                   )
+
+## combine dfs
+### ANOVAs
+aov <- lapply(lm.out, `[[`, 1) %>%
+  bind_rows(.)
+
+### format
+aov$pval <- signif(aov$`Pr(>F)`, 3)
+aov$sig <- ifelse(aov$pval< 0.001, ", p < 0.001",
+            ifelse(aov$pval < 0.01, 
+                   paste0(", p = ", aov$pval, "**"),
+            ifelse(aov$pval < 0.05, 
+                   paste0(", p = ", aov$pval, "*"),
+            ifelse(aov$pval < 0.1, 
+                   paste0(", p = ", aov$pval, "."),
+                               ", p > 0.1"))))
+aov$stat <- signif(aov$`F value`, 3)
+
+aov <- aov %>%
+  mutate(term = str_replace_all(term,
+                                "log\\(metric_value\\)",
+                                   "diversity"))
+## pivot wider for each model term
+aov.w <- aov %>%
+  select(-c(`F value`,"Pr(>F)","pval", "Sum Sq")) %>%
+  pivot_wider(
+    names_from = term,
+    values_from = c(stat, Df, sig)
+  ) ## 8 traits x 2 metrics x 2 times = 32 rows
+
+## formatting
+aov.f <- aov.w %>%
+  mutate(
+   Species = paste0("F [", Df_species, ", ",
+                     Df_Residuals, "] = ", stat_species,
+                     sig_species),
+   Diversity =  paste0("F [", Df_diversity, ", ",
+                          Df_Residuals, "] = ", stat_diversity,
+                          sig_diversity),
+   `Diversity x Species` =  
+     paste0("F [", 
+            `Df_diversity:species`, ", ",
+                          Df_Residuals, "] = ", `stat_diversity:species`,
+                          `sig_diversity:species`)
+         ) %>%
+  select(metric, trait, time, Diversity, Species,
+         `Diversity x Species`) %>%
+  pivot_wider(
+    names_from = metric,
+    values_from = c("Diversity", "Species", 
+                    "Diversity x Species")
+  )
+
+##### correlations #####
+
+load(file = "./16S_analyses_files/meta_div.w.Rda") ## loads meta.tp
+
+source("./Source_code/mod-alpha.vs.trait_corr.func.R")
+
+# Identify relevant columns
+metric.list <-  c("Shannon_TP1","InvSimpson.c_TP1",
+                  "Shannon_TP2","InvSimpson.c_TP2")
+trait.list <- c("direct.survival_perc.corr",
+                "direct.shoot_root_ratio",
+                "direct.per_plant_weight",
+                "direct.dry_pod_weight.corr")
+species.list <- c("L", "R", "P")
+
+## run function
+results <- run_correlations(data = meta.tp, 
+                            metric.list, 
+                            trait.list,
+                            species.list)
+
+# Combine results
+results_df <- bind_rows(results)
+
+## split cols in results_df
+results_df <- results_df %>%
+  separate(Diversity, into = c("metric", 
+                               "timepoint"), sep = "_")
+
+## round pval
+results_df$pval <- signif(results_df$P_value_correlation, 3)
+### format
+results_df$sig <- ifelse(results_df$P_value_correlation < 0.001, ", p < 0.001",
+            ifelse(results_df$P_value_correlation < 0.01, paste0(", p = ", results_df$pval, "**"),
+            ifelse(results_df$P_value_correlation < 0.05, paste0(", p = ", results_df$pval, "*"),
+            ifelse(results_df$P_value_correlation < 0.1, paste0(", p = ", results_df$pval, "."),
+                               ", p > 0.1"))))
+## test stats
+results_df$R2 <- signif(results_df$R_squared, 3)
+## test stats
+results_df$r <- signif(results_df$Pearson_corr, 3)
+
+
+results_df$stat <- paste0("R2=", results_df$R2, ", ", 
+                    "r = ", results_df$r,
+                    results_df$sig)
+
+## save relevant output for table
+res.sig <- results_df %>%
+  filter(P_value_correlation < 0.1) %>%
+  mutate(
+    sig_corrs = paste0(Species, "_", metric,
+                           ": ", stat)
+    ) %>%
+  select(metric, time = timepoint, trait = Trait, sig_corrs) %>%
+  group_by(trait, time) %>%
+  summarize(
+    sig_corrs = paste(sig_corrs, collapse = " | ")
+    )
+
+## add to anova
+aov.f <- left_join(aov.f, res.sig, by = c("trait","time")) 
+
+## save
+write.csv(aov.f, paste0(output_dir,
+                             "aov3-alpha.vs.trait.csv"),
+          row.names = FALSE)
+
+# visualize Pearson correlations as a heatmap
+heatmap_data <- results_df %>%
+  mutate(Diversity = paste0(metric, "_", timepoint)) %>%
+  select(Diversity, Trait, Species, Pearson_corr) %>%
+  pivot_wider(names_from = c("Trait", "Species"),
+              values_from = Pearson_corr)
+
+heatmap_matrix <- as.matrix(heatmap_data[,-1])
+rownames(heatmap_matrix) <- heatmap_data$Diversity
+
+# Create output directory if it doesn't exist
+output_dir <- "./16S_analyses_files/figs/"
+if (!dir.exists(output_dir)) {
+  dir.create(output_dir, recursive = TRUE)
+}
+
+# Save the heatmap
+p <- pheatmap(t(heatmap_matrix),
+         display_numbers = TRUE,
+         color = colorRampPalette(c("blue", "white", "red"))(100),
+         breaks = seq(-1, 1, length.out = 101),
+         main = "Pearson Correlation Heatmap",
+         fontsize_row = 12,
+         fontsize_col = 12,
+         fontsize_number = 10)
+ggsave(paste0(output_dir, "./corr_plots/corr_heatmap.png"), 
+       plot = p,
+    width = 6, height = 4, dpi = 400)
+
+## plots for pod weight (peas only)
+meta.tp.l <- meta.tp %>%
+  filter(species == "P") %>%
+  pivot_longer(
+    cols = all_of(metric.list),
+    names_to = "metric_tp",
+    values_to = "value") %>%
+   separate(metric_tp, 
+            into = c("metric", "timepoint"), 
+            sep = "_",
+            remove = FALSE)
+## 21 samples x 4 metrics = 84 rows
+
+## set order  
+meta.tp.l$metric <- factor(meta.tp.l$metric,
+                          levels = c(
+                            "Shannon",
+                            "InvSimpson.c"
+                          ))
+
+metric_labs <- c(
+  Shannon = "Shannon",
+  InvSimpson.c = "Inv. Simpson (/100)"
+)
+
+# Plot
+p <- ggplot(meta.tp.l, aes(x = value, 
+                           y = direct.dry_pod_weight.corr)) +
+  geom_point(size = 3, 
+             aes(colour = treat.rn, shape = timepoint)) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_smooth(aes(linetype = timepoint), 
+              method = "lm", colour = "black",
+              se = FALSE, formula = y ~ x) +
+  scale_color_manual(values = c("gray", 
+                                "lightblue", 
+                                "cornflowerblue",
+                                "blue", 
+                                "#EABD8C", 
+                                "#FFAD00", 
+                                "#B06500")) +
+  scale_shape_manual(values = c(2, 17)) +
+  scale_linetype_manual(values = c(2, 1)) +
+  facet_wrap(~metric, scales = "free_x", ncol = 1,
+             labeller = labeller(metric = metric_labs)) +
+  guides(color = "none", shape = "none", linetype = "none") +
+  labs(y = "Dry pod weight", x = "Diversity") +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 16),
+        axis.text.x = element_text(size = 14),
+        axis.title.y = element_text(size = 16),
+        axis.text.y = element_text(size = 14),
+        strip.text = element_text(size = 14, face = "bold"), 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+print(p)
+
+## save  
+ggsave(paste0(output_dir, "plot-div.vs.dryPodWeight.png"), 
+       width = 8, height = 4, plot = p,
+       units = "in")
+saveRDS(p, file = paste0(output_dir,
+                         "plot-div.vs.dryPodWeight.rds"))
+
 ```
 
 ## Beta diversity
@@ -957,42 +1926,79 @@ rarefaction and use methods that account for library size (e.g., DESeq2,
 variance-stabilizing transformation, or CLR transformation for compositional 
 data)
 
-Our samples have widely varying sequencing depths. Use rarefied df
+Use non-rarefied data, but filter for rare taxa (< 0.1%)
 
 ```{r beta_PCoA}
-## load relevant data
-load(file = "./16S_outputs/phyloseq_noHOST_rarified.Rda") ## loads rare_ps
-## metadata file
-load(file = "./16S_outputs/metadata_cleaned.Rda") ## loads meta
+## load relevant phyloseqs
+load(file = "./16S_analyses_files/phyloseq-noHOST.Rda") ## loads dat_lessHOST
+
+## remove OTUs less than 0.1%
+rel_abun_all <- transform_sample_counts(dat_lessHOST, function(x) x/sum(x))
+rel_abun_all_prune <- 
+  prune_taxa(taxa_sums(rel_abun_all) > 0.001, dat_lessHOST)
+## check sampling depth
+samplesums <- sort(sample_sums(rel_abun_all_prune))
+## save
+save(rel_abun_all_prune, 
+     file = "./16S_analyses_files/phyloseq-noHOST_pruned1.Rda")
+write.csv(t(otu_table(rel_abun_all_prune)), 
+          file="./16S_analyses_files/otu_table-noHOST_pruned1.csv")
+
+## load metadata file
+load(file = "./16S_analyses_files/meta_div.Rda") ## loads meta
 
 ## PCoA plot with Bray Curtis distances
 ## ordinate
-RA.ord <- ordinate(rare_ps, method = "PCoA", 
+ord_data <- ordinate(dat_lessHOST, method = "PCoA", 
                             distance = "bray")
 
+var_explained <- ord_data$values$Relative_eig * 100
+
+# Extract ordination coordinates for samples
+ord_df <- plot_ordination(dat_lessHOST, 
+                          ord_data, 
+                          axes = c(1, 2), justDF = TRUE)
+
+# Check column names
+head(ord_df)
+
 ## plot
-### add in ggplot aesthetics:
-p1 <-  plot_ordination(rare_ps, RA.ord, axes = c(1,2))
 
-p1$layers <- p1$layers[-1]
-# To remove the extra jitter layer
+## formatting
+species_tp.names <- c(
+    no_plant_Source = "Source",
+    no_plant_TP2 = "Soil only: Harvest",
+    L_TP1 = 'Lettuce: 1 wk PP',
+    L_TP2 = 'Lettuce: Harvest',
+    R_TP1 = 'Radish: 1 wk PP',
+    R_TP2 = 'Radish: Harvest',
+    P_TP1 = 'Pea: 1 wk PP',
+    P_TP2 = 'Pea: Harvest'
+  )
 
-p <- p1 +
-  geom_point(aes(colour = treat.rn, shape = timepoint),
-             size = 3,
+p <- ggplot(ord_df, aes(x = Axis.1, y = Axis.2, color = treat.rn)) +
+  geom_point(aes(colour = treat.rn, shape = species_tp),
+             size = 4, stroke = 2,
              alpha = 0.7) + 
-  scale_color_manual(values = c("black",
+  scale_color_manual(values = c("gray",
+                                "black",
                                 "brown",
                                 "green3",
                                 "green4",
-                                "gray",
                                 "lightblue",
                                 "cornflowerblue",
                                 "blue",
                                 "#EABD8C",
                                 "#FFAD00",
                                 "#B06500")) +
-  guides(colour = "none", shape = "none") +
+  scale_shape_manual(values = c(3, 4, 0, 1, 2, 15,16, 17),
+                     labels = species_tp.names) +
+  labs(x = paste0("PCoA Axis 1 [", round(var_explained[1], 1), "%]"),
+       y = paste0("PCoA Axis 2 [", round(var_explained[2], 1), "%]"),
+       shape = "Crop species: \n timepoint",
+       colour = "Treatment") +
+  guides(color = guide_legend(ncol = 2),
+        shape = guide_legend(ncol = 2)) +
   theme_bw() + 
   theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold"), 
         axis.title.x = element_text(size=14), 
@@ -1000,17 +2006,16 @@ p <- p1 +
         axis.text.x = element_text(size = 12), 
         axis.text.y = element_text(size= 12), 
         legend.text = element_text(size = 10), 
-        legend.title = element_text(size =10),
+        legend.title = element_text(size =10, face = "bold"),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank())
 p
-ggsave("./16S_outputs/figs/PCoA_plots_all-data.png",
-       width = 8, height = 6, units = "in",
+ggsave("./16S_analyses_files/figs/plots-PCoA_all_data.nofilt.png",
+       width = 10, height = 6, units = "in", plot = p,
        dpi = 400)
-include_graphics("./16S_outputs/figs/PCoA_plots_all-data.png")
 
 #Extract Eigenvalues
-eigenvalues <- RA.ord$values$Eigenvalues
+eigenvalues <- ord_data$values$Eigenvalues
 
 # Number of components
 n <- length(eigenvalues)
@@ -1036,7 +2041,7 @@ scree_bs <- ggplot(scree_data,
                   linetype = "solid") + 
     geom_line(aes(y = BrokenStickModel), 
               color = "red", 
-              size = 1, 
+              linewidth = 1, 
               linetype = "dashed") +
     geom_point(aes(y = VarianceExplained)) +
     labs(title = "Scree Plot for PCoA and Broken Stick Model",
@@ -1045,310 +2050,700 @@ scree_bs <- ggplot(scree_data,
     theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold"))
 scree_bs
-ggsave("./16S_outputs/figs/scree_plot_all-data.png",
-       width = 6, height = 5, units = "in",
+ggsave("./16S_analyses_files/figs/plot-scree_all_data.nofilt.png",
+       width = 6, height = 5, units = "in", plot = scree_bs,
        dpi = 400)
-include_graphics("./16S_outputs/figs/scree_plot_all-data.png")
 
 ## function to compare treatments within each timepoint
-source("./Source_code/plot_beta.func.R")
+source("./Source_code/plot-beta.func.R")
 
-times.list <- rep(c("TP1","TP2"),2)
-metrics.list <- c(rep("PCoA",2),rep("NMDS",2))
-combs.list <- paste0(times.list, "_", metrics.list)
-
-plots.out <- mapply(FUN = plot_beta.func, 
-                      combs = combs.list, 
-                      times = times.list, 
-                      metrics = metrics.list, 
+time.list <- c("TP1","TP2")
+metric.list <- c("PCoA","NMDS")
+comb_df <- expand_grid(metrics = metric.list, times = time.list)
+## Combine into a single string
+comb_df <- comb_df %>%
+  mutate(
+    combs = paste(metrics, times, sep = "_")
+  )
+## run function
+plots.out <- mapply(FUN = plot_beta, 
+                      combs = comb_df$combs, 
+                      times = comb_df$times, 
+                      metrics = comb_df$metrics, 
                       USE.NAMES = TRUE, 
                       SIMPLIFY = FALSE,
-                      MoreArgs = list(df = rare_ps)
+                      MoreArgs = list(df = dat_lessHOST)
                    )
 
+# Get shared limits
+
+# Build the plot to access its components
+p1_built <- ggplot_build(plots.out[["PCoA_TP1"]])
+p2_built <- ggplot_build(plots.out[["PCoA_TP2"]])
+
+# Extract y-axis limits
+(y1_limits <- range(p1_built$layout$panel_scales_y[[1]]$range$range))
+(y2_limits <- range(p2_built$layout$panel_scales_y[[1]]$range$range))
+
 ## combine plots (all crops)
-fig1 <- plot_grid(plots.out[["TP1_PCoA"]][[1]] +
-                    ggtitle("One week post planting") +
-                    scale_y_continuous(limits = c(-0.55,0.25)), 
-                  plots.out[["TP2_PCoA"]][[1]] +
-                    ggtitle("At harvest") +
-                    scale_y_continuous(limits = c(-0.55,0.25)),
+fig1 <- plot_grid(plots.out[["PCoA_TP1"]] +
+                    ggtitle("1 wk PP") +
+                    coord_cartesian(ylim = y1_limits) +
+                    theme(legend.position = "none"), 
+                  plots.out[["PCoA_TP2"]] +
+                    ggtitle("Harvest") +
+                    coord_cartesian(ylim = y1_limits) +
+                    theme(legend.position = "none"),
                   rel_widths = c(1, 1),
-          ncol = 2,
-          nrow = 1,
-          align = "h",
+          ncol = 1,
+          nrow = 2,
+          align = "v",
           labels = NULL)
 fig1
 
-ggsave("./16S_outputs/figs/PCoA_plots.png",
-       width = 8, height = 4, units = "in",
+## save
+ggsave("./16S_analyses_files/figs/plots-PCoA.nofilt.png",
+       width = 4, height = 8, units = "in", plot = fig1,
        dpi = 400)
-include_graphics("./16S_outputs/figs/PCoA_plots.png")
-saveRDS(fig1, file = "./16S_outputs/figs/beta_PCoA.rds")
+saveRDS(fig1, file = "./16S_analyses_files/figs/plots-PCoA.nofilt.rds")
 
-fig2 <- plot_grid(plots.out[["TP1_NMDS"]][[1]] +
-                    ggtitle("One week post planting") +
-                    scale_y_continuous(limits = c(-0.7,0.6)), 
-                  plots.out[["TP2_NMDS"]][[1]] +
-                    ggtitle("At harvest") +
-                    scale_y_continuous(limits = c(-0.7,0.6)),
-                  rel_widths = c(1, 1),
+## save legend
+# Extract legend from one original plot (before theme(legend.position = "none"))
+legend_plot <- plots.out[["PCoA_TP1"]]   # or any plot with legend
+legend <- get_legend(legend_plot + 
+                       theme(legend.position = "right"))
+legend_scaled <- cowplot::ggdraw(legend) + 
+  theme(plot.margin = margin(0,0,0,0))
+
+## save
+saveRDS(legend_scaled, file = "./16S_analyses_files/figs/plots-PCoA.legend.rds")
+
+# NMDS: Get shared limits
+
+# Build the plot to access its components
+p1_built <- ggplot_build(plots.out[["NMDS_TP1"]])
+p2_built <- ggplot_build(plots.out[["NMDS_TP2"]])
+
+# Extract y-axis limits
+(y1_limits <- range(p1_built$layout$panel_scales_y[[1]]$range$range))
+(y2_limits <- range(p2_built$layout$panel_scales_y[[1]]$range$range))
+(x1_limits <- range(p1_built$layout$panel_scales_x[[1]]$range$range))
+(x2_limits <- range(p2_built$layout$panel_scales_x[[1]]$range$range))
+
+fig2 <- plot_grid(plots.out[["NMDS_TP1"]] +
+                    ggtitle("1 wk PP") +
+                    coord_cartesian(ylim = c(y2_limits[[1]],
+                                             y1_limits[[2]]),
+                                    xlim = c(x2_limits[[1]],
+                                             x1_limits[[2]])) +
+                    labs(x = "NMDS Axis 1",
+                         y = "NMDS Axis 2") +
+                    theme(legend.position = "none"),
+                  plots.out[["NMDS_TP2"]] +
+                    ggtitle("Harvest") +
+                    coord_cartesian(ylim = c(y2_limits[[1]],
+                                             y1_limits[[2]]),
+                                    xlim = c(x2_limits[[1]],
+                                             x1_limits[[2]])) +
+                     labs(x = "NMDS Axis 1",
+                         y = "NMDS Axis 2"),
+                  rel_widths = c(0.7, 1),
           ncol = 2,
           nrow = 1,
           align = "h",
           labels = NULL)
 fig2
-ggsave("./16S_outputs/figs/NMDS_plots.png",
-       width = 8, height = 4, units = "in",
+## save
+ggsave("./16S_analyses_files/figs/plots-NMDS.nofilt.png",
+       width = 10, height = 4, units = "in", plot = fig2,
        dpi = 400)
-include_graphics("./16S_outputs/figs/NMDS_plots.png")
 
 ```
 
-### Overlay traits as vectors (peas only, TP2)
-
-```{r beta_trait}
-## load relevant data
-load(file = "./16S_outputs/phyloseq_noHOST_rarified.Rda") ## loads rare_ps
-## metadata file
-load(file = "./16S_outputs/metadata_cleaned.Rda") ## loads meta
-
-## subset both to peas only and TP2
-rare_ps.peas <- prune_samples(sample_data(rare_ps)$species_tp %in% c("P_TP2"), 
-                              rare_ps)
-meta.peas <- meta %>%
-  filter(species_tp == "P_TP2") %>%
-  droplevels(.)
-
-sample_list <- unique(meta.peas$Sample_ID) ## 21 samples
-
-# Example: abundance_table is a data frame or matrix
-# Rows = samples, Columns = taxa
-otu_table <- read.csv("./16S_outputs/otu_table_noHOST_rarified.csv", 
-                      row.names = 1)
-
-## subset OTU table to these samples
-otu_subset <- otu_table[rownames(otu_table) %in% sample_list, ]
-
-## normalize
-rel_abundance <- decostand(otu_subset, method = "total")
-
-# Bray-Curtis dissimilarity
-bray_dist <- vegdist(otu_subset, method = "bray")
-
-# Perform ordination (e.g., NMDS or PCoA)
-nmds <- metaMDS(bray_dist, k = 2, trymax = 100)
-
-trait.list <- c(
-               "plant_height4",
-               "chlorophyll_content4_mean", 
-               "leaf_number2",              
-               "wet_shoot_weight",         
-               "dry_shoot_weight",          
-               "wet_root_weight",           
-               "dry_root_weight",           
-               "dry_total_weight",         
-               "shoot_root_ratio",          
-               "shoot_moisture"  
-                )
-
-## add response before each trait (to get emmean)
-trait.list.f <- paste0("response_", trait.list)
-
-env_data <- meta.peas[, c(trait.list.f, "treat.rn")]
-
-fit <- envfit(nmds, env_data, permutations = 999)
-
-# Plot NMDS ordination
-plot(nmds, type = "n")
-points(nmds, display = "sites", col = "gray", pch = 16)
-plot(fit)
-
-# summarize covariate results
-results.traits <- data.frame(
-  r = fit$vectors$r,
-  p = fit$vectors$pvals,
-  fit$vectors$arrows)
-print(results.traits)
-
-## summarize factor results
-centroids <- as.data.frame(fit$factors$centroids)
-centroids$Group <- rownames(centroids)
-r_squared <- fit$factors$r
-p_value <- fit$factors$pvals
-
-results.treats <- data.frame(
-  Factor = names(r_squared),
-  R2 = r_squared,
-  P = p_value
-)
-print(results.treats)
-
-# 1. Extract NMDS site scores (sample coordinates)
-nmds_scores <- as.data.frame(scores(nmds, display = "sites"))
-nmds_scores$SampleID <- rownames(nmds_scores)
-
-# 2. Extract envfit vectors (arrows)
-vectors <- as.data.frame(fit$vectors$arrows)
-vectors$r <- fit$vectors$r
-vectors$pval <- fit$vectors$pvals
-vectors$Trait <- rownames(vectors)
-
-# 3. Extract Factor Centroids (e.g., Treatment)
-centroids <- as.data.frame(fit$factors$centroids)
-centroids$Group <- rownames(centroids)
-
-
-# 4. Filter significant vectors (optional)
-#vectors_sig <- subset(vectors, pval <= 0.05)
-
-## add in other relevant metadata (treat)
-nmds_scores$treat <- meta.peas$treat.rn[match(nmds_scores$SampleID, 
-                                      meta.peas$Sample_ID)]
-nmds_scores$Source <- meta.peas$Source[match(nmds_scores$SampleID, 
-                                      meta.peas$Sample_ID)]
-
-selected.traits <- c("response_shoot_root_ratio")
-
-new.names <- c("Shoot to root ratio")
-
-# Create a copy of the trait names
-vectors$trait.rn <- vectors$Trait
-
-# Replace matched traits with new names
-match_idx <- match(vectors$Trait, selected.traits)
-
-# Only replace where there's a match
-vectors$trait.rn[!is.na(match_idx)] <- new.names[match_idx[!is.na(match_idx)]]
-
-scale_factor <- 3  # Try 3–10 depending on your plot
-
-# 4. Plot using ggplot2
-ggplot(data = nmds_scores, aes(x = NMDS1, y = NMDS2)) +
-  geom_point(aes(color = treat), size = 3) +
-  # stat_ellipse(type = "t", level = 0.95,
-  #             aes(group = Source),
-  #             linetype = 2) +  # 95% confidence ellipse
-  # Factor centroids
-  # geom_point(data = centroids, aes(x = NMDS1, y = NMDS2), 
-  #            color = "red", size = 4, shape = 17) +
-  # geom_text_repel(data = centroids, 
-  #                 aes(x = NMDS1, y = NMDS2, label = Group), 
-  #                 color = "red", size = 4) +
-  # Continuous trait vectors
-  geom_segment(data = vectors %>%
-              filter(Trait %in% selected.traits),
-             aes(x = 0, y = 0, xend = NMDS1 * r * scale_factor, 
-                 yend = NMDS2 * r * scale_factor),
-             arrow = arrow(length = unit(0.25, "cm")),
-             color = "blue") +
-  geom_text(data = vectors %>%
-              filter(Trait %in% selected.traits),
-          aes(x = NMDS1 * r * scale_factor * 1.1, 
-              y = NMDS2 * r * scale_factor * 1.1, 
-              label = trait.rn),
-          color = "blue", size = 4) +
-  # additional formatting
-  scale_color_manual(values = c("gray",
-                                  "lightblue",
-                                  "cornflowerblue",
-                                  "blue",
-                                  "#EABD8C",
-                                  "#FFAD00",
-                                  "#B06500")) +
-  guides(colour = "none") +
-  labs(x = "NMDS1", y = "NMDS2") +
-  theme_bw() +
-  theme(
-    axis.title.x = element_text(size = 16),
-          axis.text.x = element_text(size = 14),
-          axis.title.y = element_text(size = 16),
-          axis.text.y = element_text(size = 14),
-          panel.grid.major = element_blank(),
-          panel.grid.minor = element_blank()
-  )
-ggsave("./16S_outputs/figs/NMDS_trait_vec.png",
-       width = 7, height = 6, units = "in",
-       dpi = 400)
-include_graphics("./16S_outputs/figs/NMDS_trait_vec.png")
-
-
-```
-
-### Capscale analysis
+### Capscale analysis (dbRDA)
 
 CAPSCALE (constrained analysis of principal coordinates) is a form of 
 distance-based redundancy analysis (db-RDA), and it's particularly useful 
 when you want to relate microbiome community structure (based on a distance 
 matrix) to environmental variables.
 
-```{r beta_capscale}
-load(file = "./16S_outputs/phyloseq_noHOST_rarified.Rda") ## loads rare_ps
-## metadata file
-load(file = "./16S_outputs/metadata_cleaned.Rda") ## loads meta
+```{r beta-capscale_dbRDA}
+## load relevant data
+load(file = "./16S_analyses_files/phyloseq-noHOST_pruned1.Rda") 
+## loads rel_abun_all_prune (ps object)
 
-## calculate Bray Curtis distnaces
-dist_bc <- phyloseq::distance(rare_ps, method = "bray")
+## load relevant data
+load(file = "./16S_analyses_files/phyloseq-noHOST.Rda") 
+## loads dat_lessHOST (ps object)
 
-# Run capscale
-cap_result <- capscale(dist_bc ~ 
-                         treat.rn + timepoint, 
-                       data = meta)
 
-# Total constrained inertia
-(total_constrained <- cap_result$CCA$tot.chi)
+## subset to experimental samples
+df.f <- 
+  prune_samples(!sample_data(dat_lessHOST)$species %in%
+                  "no_plant", dat_lessHOST)
 
-# Run ANOVA by term
-anova_terms <- anova(cap_result, by = "term")
+## Extract OTU table and sample data
+otu_table_df <- as.data.frame(phyloseq::otu_table(df.f))
+  if (phyloseq::taxa_are_rows(df.f)) {
+    otu_table_df <- t(otu_table_df)
+  }
+sample_data_df <- as(sample_data(df.f), "data.frame")
 
-# Extract Sum of Squares
-sum_sqs <- anova_terms$"SumOfSqs"
+## examine correlations among traits and reduce (all species)
 
-# Calculate total variation (including residuals)
-total_variation <- sum(sum_sqs)
+trait.list <- c(
+                "wet_shoot_weight", 
+                "dry_shoot_weight",
+                "wet_root_weight", 
+                "dry_root_weight",
+                "dry_total_weight",
+                "per_plant_weight",
+                "shoot_moisture",
+                "shoot_root_ratio",
+                "germination_perc",
+                "survival_perc.corr")
 
-# Calculate proportion explained
-prop_explained <- sum_sqs / total_variation
+### select all traits
+direct_cols_df <- direct[, trait.list]
 
-# Combine into a data frame
-explained_df <- data.frame(
-  Term = rownames(anova_terms),
-  SumOfSqs = sum_sqs,
-  Proportion = prop_explained
+## check correlations among traits
+# Select numeric columns
+numeric_cols <- direct_cols_df %>%
+  select(where(is.numeric))
+
+# Impute missing values with column means
+imputed_df <- numeric_cols %>%
+  mutate(across(where(is.numeric),
+                ~ ifelse(is.na(.), 
+                         mean(., na.rm = TRUE), .)))
+
+# Correlation matrix
+cor_matrix <- cor(imputed_df, use = "pairwise.complete.obs")
+
+# Plot heatmap
+pheatmap(cor_matrix,
+       color = colorRampPalette(c("blue", "white", "red"))(50),
+       display_numbers = TRUE,
+       cluster_rows = TRUE,
+       cluster_cols = TRUE)
+
+## remove highly correlated vars
+
+# Find highly correlated variables
+high_corr <- findCorrelation(cor_matrix, cutoff = 0.8)
+
+# Remove them
+reduced_traits <- numeric_cols[, -high_corr]
+
+selected_traits.all <- names(reduced_traits)
+
+# Correlation matrix
+cor_matrix <- cor(reduced_traits, use = "pairwise.complete.obs")
+
+# Plot heatmap
+pheatmap(cor_matrix,
+       color = colorRampPalette(c("blue", "white", "red"))(50),
+       display_numbers = TRUE,
+       cluster_rows = TRUE,
+       cluster_cols = TRUE)
+
+## repeat for pea only traits
+
+trait.list <- c(
+                "wet_pod_weight.corr",
+                "dry_pod_weight.corr",
+                "per_pod_weight",
+                "infected_peas_perc",
+                "NDVI_mean",
+                "pods",
+                "flowers")
+
+### select all traits
+direct_cols_df <- direct[, trait.list]
+
+## check correlations among traits
+# Select numeric columns
+numeric_cols <- direct_cols_df %>%
+  select(where(is.numeric))
+
+# Impute missing values with column means
+imputed_df <- numeric_cols %>%
+  mutate(across(where(is.numeric),
+                ~ ifelse(is.na(.), 
+                         mean(., na.rm = TRUE), .)))
+
+# Correlation matrix
+cor_matrix <- cor(imputed_df, use = "pairwise.complete.obs")
+
+# Plot heatmap
+pheatmap(cor_matrix,
+       color = colorRampPalette(c("blue", "white", "red"))(50),
+       display_numbers = TRUE,
+       cluster_rows = TRUE,
+       cluster_cols = TRUE)
+
+## remove highly correlated vars
+
+# Find highly correlated variables
+high_corr <- findCorrelation(cor_matrix, cutoff = 0.8)
+
+# Remove them
+reduced_traits <- numeric_cols[, -high_corr]
+
+selected_traits.pea <- names(reduced_traits)
+
+# Correlation matrix
+cor_matrix <- cor(reduced_traits, use = "pairwise.complete.obs")
+
+# Plot heatmap
+pheatmap(cor_matrix,
+       color = colorRampPalette(c("blue", "white", "red"))(50),
+       display_numbers = TRUE,
+       cluster_rows = TRUE,
+       cluster_cols = TRUE)
+
+## source function
+source("./Source_code/mod-beta.vs.trait_dbRDA.func.R")
+
+## run for each species individually, then for all
+## iterate for each timepoint
+time.list <- c("TP1","TP2")
+species_list <- c("L", "P", "R")
+results_list <- list()
+
+for (sp in species_list) {
+  df.sp <- prune_samples(sample_data(df.f)$species == sp, df.f)
+  results_list[[sp]] <- sapply(time.list,
+                               mod_beta.vs.trait_dbRDA,
+                               df = df.sp,
+                               include_species_term = FALSE,
+                               simplify = FALSE, 
+                               USE.NAMES = TRUE)
+}
+
+# For all species together
+results_list[["all_species"]] <- 
+  sapply(time.list, mod_beta.vs.trait_dbRDA, df = df.f,
+         include_species_term = TRUE,
+         simplify = FALSE, 
+         USE.NAMES = TRUE)
+
+## create figure panel
+
+# Helper function to extract axis limits safely
+get_axis_limits <- function(built_plots, axis = "x") {
+  ranges <- lapply(built_plots, function(bp) {
+    scale <- if (axis == "x") bp$layout$panel_scales_x[[1]] else bp$layout$panel_scales_y[[1]]
+    scale$range$range
+  })
+  unlist(ranges)
+}
+
+# Collect plots
+species <- c("L", "R", "P")
+species_labels.TP1 <- c("Let: 1wkPP", 
+                        "Rad: 1wkPP",
+                        "Pea: 1wkPP")
+species_labels.TP2 <- c("Let: Har", 
+                        "Rad: Har",
+                        "Pea: Har")
+
+plots_tp1 <- lapply(species, function(s) results_list[[s]][["TP1"]][[1]])
+plots_tp2 <- lapply(species, function(s) results_list[[s]][["TP2"]][[1]])
+
+# Build plots to get axis limits
+built_plots <- lapply(c(plots_tp1, plots_tp2), ggplot_build)
+
+# Calculate limits with buffer
+x_limits <- range(get_axis_limits(built_plots, "x"))
+y_limits <- range(get_axis_limits(built_plots, "y"))
+
+x_buffer <- 0.1 * diff(x_limits)
+y_buffer <- 0.1 * diff(y_limits)
+
+x_limits <- c(x_limits[1] - x_buffer, x_limits[2] + x_buffer)
+y_limits <- c(y_limits[1] - y_buffer, y_limits[2] + y_buffer)
+
+# Apply limits and formatting
+plots_tp1 <- Map(function(p, lbl) {
+  p + coord_cartesian(xlim = x_limits, 
+                      ylim = y_limits) +
+    ggtitle(lbl) +
+    theme(axis.title.x = element_blank(), 
+          legend.position = "none")
+}, plots_tp1, species_labels.TP1)
+
+plots_tp2 <- Map(function(p, lbl) {
+  p + coord_cartesian(xlim = x_limits, 
+                      ylim = y_limits) +
+    ggtitle(lbl) +
+    theme(legend.position = "none")
+}, plots_tp2, species_labels.TP2)
+
+# Combine into figure
+row_tp1 <- plot_grid(plotlist = plots_tp1, ncol = 3)
+row_tp2 <- plot_grid(plotlist = plots_tp2, ncol = 3)
+
+# Extract legend from one original plot (before theme(legend.position = "none"))
+legend_plot <- results_list[["all_species"]][["TP1"]][[1]]  # or any plot with legend
+legend <- get_legend(legend_plot + 
+                       theme(legend.position = "right"))
+legend_scaled <- cowplot::ggdraw(legend) + 
+  theme(plot.margin = margin(0,0,0,0))
+
+## combine
+fig <- plot_grid(
+  plot_grid(row_tp1, 
+            row_tp2, 
+            nrow = 2),
+  legend_scaled,
+  ncol = 2,
+  rel_widths = c(3, 0.4)  # reduce width for legend
+)
+fig
+
+# Create output directory if it doesn't exist
+## set output directory
+output_dir.fig <- "./16S_analyses_files/figs/"
+if (!dir.exists(output_dir.fig)) {
+  dir.create(output_dir, recursive = TRUE)
+}
+
+## save
+saveRDS(fig, file = 
+          paste0(output_dir.fig, 
+                 "plot-dbRDA.species.wtraits.nofilt.rds"))
+ggsave(paste0(output_dir.fig, "plot-dbRDA.species.wtraits.nofilt.png"),
+       width = 10, height = 6, units = "in", plot = fig,
+       dpi = 400)
+
+## save just pea
+# Collect plots
+species <- c("P")
+species_labels.TP1 <- c("Pea: 1wkPP")
+species_labels.TP2 <- c("Pea: Har")
+
+plots_tp1 <- lapply(species, function(s) results_list[[s]][["TP1"]][[1]])
+plots_tp2 <- lapply(species, function(s) results_list[[s]][["TP2"]][[1]])
+
+# Build plots to get axis limits
+built_plots <- lapply(c(plots_tp1, plots_tp2), ggplot_build)
+
+# Calculate limits with buffer
+x_limits <- range(get_axis_limits(built_plots, "x"))
+y_limits <- range(get_axis_limits(built_plots, "y"))
+
+x_buffer <- 0.1 * diff(x_limits)
+y_buffer <- 0.1 * diff(y_limits)
+
+x_limits <- c(x_limits[1] - x_buffer, x_limits[2] + x_buffer)
+y_limits <- c(y_limits[1] - y_buffer, y_limits[2] + y_buffer)
+
+# Apply limits and formatting
+plots_tp1 <- Map(function(p, lbl) {
+  p + coord_cartesian(xlim = x_limits, 
+                      ylim = y_limits) +
+    ggtitle(lbl) +
+    theme(legend.position = "none")
+}, plots_tp1, species_labels.TP1)
+
+plots_tp2 <- Map(function(p, lbl) {
+  p + coord_cartesian(xlim = x_limits, 
+                      ylim = y_limits) +
+    ggtitle(lbl) +
+    theme(legend.position = "none")
+}, plots_tp2, species_labels.TP2)
+
+# # Combine into figure
+# row_tp1 <- plot_grid(plotlist = plots_tp1, ncol = 3)
+# row_tp2 <- plot_grid(plotlist = plots_tp2, ncol = 3)
+
+# Extract legend from one original plot (before theme(legend.position = "none"))
+legend_plot <- results_list[["all_species"]][["TP1"]][[1]]  # or any plot with legend
+legend <- get_legend(legend_plot + 
+                       theme(legend.position = "right"))
+legend_scaled <- cowplot::ggdraw(legend) + 
+  theme(plot.margin = margin(0,0,0,0))
+
+## combine
+fig <- plot_grid(
+  plot_grid(plots_tp1[[1]], 
+            plots_tp2[[1]], 
+            nrow = 2),
+  legend_scaled,
+  ncol = 2,
+  rel_widths = c(3, 1)  # reduce width for legend
+)
+fig
+
+## without legend
+fig.wo.leg <- 
+  plot_grid(plots_tp1[[1]], 
+            plots_tp2[[1]], 
+            nrow = 2,
+            align = "v") # reduce width for legend
+fig.wo.leg
+
+## save
+saveRDS(fig.wo.leg, file = 
+          paste0(output_dir.fig, 
+                 "plot-dbRDA.pea.wtraits.noleg.nofilt.rds"))
+
+## create supp fig for all species
+# Collect plots
+species <- c("all_species")
+species_labels.TP1 <- c("1 wk PP")
+species_labels.TP2 <- c("Harvest")
+
+plots_tp1 <- lapply(species, function(s) results_list[[s]][["TP1"]][[1]])
+plots_tp2 <- lapply(species, function(s) results_list[[s]][["TP2"]][[1]])
+
+# Build plots to get axis limits
+built_plots <- lapply(c(plots_tp1, plots_tp2), ggplot_build)
+
+# Calculate limits with buffer
+x_limits <- range(get_axis_limits(built_plots, "x"))
+y_limits <- range(get_axis_limits(built_plots, "y"))
+
+x_buffer <- 0.1 * diff(x_limits)
+y_buffer <- 0.1 * diff(y_limits)
+
+x_limits <- c(x_limits[1] - x_buffer, x_limits[2] + x_buffer)
+y_limits <- c(y_limits[1] - y_buffer, y_limits[2] + y_buffer)
+
+# Apply limits and formatting
+plots_tp1 <- Map(function(p, lbl) {
+  p + coord_cartesian(xlim = x_limits, 
+                      ylim = y_limits) +
+    ggtitle(lbl) +
+    theme(legend.position = "none")
+}, plots_tp1, species_labels.TP1)
+
+plots_tp2 <- Map(function(p, lbl) {
+  p + coord_cartesian(xlim = x_limits, 
+                      ylim = y_limits) +
+    ggtitle(lbl) +
+    theme(legend.position = "none")
+}, plots_tp2, species_labels.TP2)
+
+# Combine into figure
+row_tp1 <- plot_grid(plotlist = plots_tp1, ncol = 1)
+row_tp2 <- plot_grid(plotlist = plots_tp2, ncol = 1)
+
+# Extract legend from one original plot (before theme(legend.position = "none"))
+legend_plot <- results_list[["all_species"]][["TP1"]][[1]]  # or any plot with legend
+legend <- get_legend(legend_plot + 
+                       theme(legend.position = "right"))
+legend_scaled <- cowplot::ggdraw(legend) + 
+  theme(plot.margin = margin(0,0,0,0))
+
+## combine
+fig <- plot_grid(
+  plot_grid(row_tp1, row_tp2, ncol = 2),
+  legend_scaled,
+  ncol = 2,
+  rel_widths = c(3, 0.4)  # reduce width for legend
+)
+fig
+
+## save
+saveRDS(fig, file = 
+          paste0(output_dir.fig, 
+                 "plot-dbRDA.wtraits.nofilt.rds"))
+ggsave(paste0(output_dir.fig, "plot-dbRDA.wtraits.nofilt.png"),
+       width = 10, height = 4, units = "in", plot = fig,
+       dpi = 400)
+
+## extract results
+### trait correlations
+
+# Extract all trait correlation data frames (element [[2]]) from results_list
+species_vec <- c("L", "R", "P", "all_species")
+timepoints <- c("TP1", "TP2")
+
+trait.corrs <- bind_rows(
+  lapply(species_vec, function(species) {
+    lapply(timepoints, function(tp) {
+      # Directly extract [[2]] for this species and timepoint
+      df <- results_list[[species]][[tp]][[2]]
+      
+      # Add species and timepoint columns
+      df %>%
+        mutate(Species = species, Timepoint = tp)
+    }) %>% bind_rows()
+  }) %>% bind_rows()
 )
 
-print(explained_df)
+### ANOVA
+aov <- bind_rows(
+  lapply(species_vec, function(species) {
+    lapply(timepoints, function(tp) {
+      # Directly extract [[2]] for this species and timepoint
+      df <- results_list[[species]][[tp]][[3]]
+      
+      # Add species and timepoint columns
+      df %>%
+        mutate(Species = species, Timepoint = tp)
+    }) %>% bind_rows()
+  }) %>% bind_rows()
+)
 
-## capscale analysis for each timepoint separately
+## combine both
+aov.f <- left_join(aov, trait.corrs %>%
+                     select(-Time), 
+                   by = c("Term",
+                          "Timepoint",
+                          "Species")
+                   )
+## formatting
+aov.f$Fsig <- ifelse(aov.f$Sig < 0.001, ", p < 0.001",
+            ifelse(aov.f$Sig < 0.01, 
+                   paste0(", p = ", aov.f$Sig, "**"),
+            ifelse(aov.f$Sig < 0.05, 
+                   paste0(", p = ", aov.f$Sig, "*"),
+            ifelse(aov.f$Sig < 0.1, 
+                   paste0(", p = ", aov.f$Sig, "."),
+                               ", p > 0.1"))))
+
+aov.f$Fstat <- paste0("F [",
+                     aov.f$Df, ", 37] =",
+                     signif(aov.f$F_value, 3),
+                     aov.f$Fsig)
+
+aov.f$Rsig <- ifelse(aov.f$P_value < 0.001, ", p < 0.001",
+            ifelse(aov.f$P_value < 0.01, 
+                   paste0(", p = ", aov.f$P_value, "**"),
+            ifelse(aov.f$P_value < 0.05, 
+                   paste0(", p = ", aov.f$P_value, "*"),
+            ifelse(aov.f$P_value < 0.1, 
+                   paste0(", p = ", aov.f$P_value, "."),
+                               ", p > 0.1"))))
+
+aov.f$Rstat <- paste0("R_sqr = ",
+                     signif(aov.f$R_squared, 3),
+                     aov.f$Rsig)
+
+aov.f$Prop_exp <- signif((aov.f$Proportion * 100), 3)
+
+aov.s <- aov.f %>%
+  select(Term, Time, Species, Prop_exp, Fstat, Rstat)
+                     
+## save
+write.csv(aov.s, 
+          "./16S_analyses_files/models/aov4_beta.vs.trait.nofilt.csv", 
+          row.names = FALSE)
+```
+
+### Beta div vs traits (NMDS on norm. rel abundance)
+
+Two methods: unconstrained NMDS with normalized relative abundance vs
+constrained distanced-based dbRDA
+
+Why Use metaMDS and envfit?
+
+metaMDS (Non-metric Multidimensional Scaling):
+* It's a robust ordination method that reduces complex community data 
+(like OTU/ASV tables) into a few dimensions (usually 2) while preserving 
+the rank order of dissimilarities.
+* It’s particularly useful for ecological data because it doesn’t assume 
+linear relationships and can handle non-Euclidean distance measures 
+(e.g., Bray-Curtis).
+
+
+envfit:
+* This function fits environmental or trait vectors onto an ordination 
+(like NMDS) by correlating them with the ordination axes.
+* It helps identify which traits are significantly associated with the 
+community composition patterns.
+* It uses permutation tests to assess the significance of these associations.
+
+```{r beta-relAbund_NMDS}
+## load relevant data
+load(file = "./16S_analyses_files/phyloseq-noHOST_pruned1.Rda") 
+##loads rel_abun_all_prune (ps object)
+
+## load metadata file
+load(file = "./16S_analyses_files/meta_div.Rda") ## loads meta
+
+# Example: abundance_table is a data frame or matrix
+# Rows = samples, Columns = taxa
+otu_table <- read.csv("./16S_analyses_files/otu_table-noHOST_pruned1.csv", 
+                      row.names = 1)
+
+## method 1 NMDS
 
 ## function
-source("./Source_code/capscale.func.R")
+source("./Source_code/plot-beta.vs.trait_NMDS.func.R")
 
-times.list <- c("TP1","TP2")
+time.list <- c("TP1","TP2")
+species.list <- c("L","R","P")
+comb_df <- expand_grid(times = time.list,
+                       crops = species.list)
+## Combine into a single string
+comb_df <- comb_df %>%
+  mutate(
+    combs = paste(times, crops, sep = "_")
+  )
+### 28 combinations: 14 traits x 2 amends = 28
 
-CS.out <- sapply(times.list, 
-                capscale.func, 
-                df = rare_ps,
+plots.out <- mapply(FUN = plot_beta_trait_NMDS, 
+                      combs = comb_df$combs, 
+                      times = comb_df$times, 
+                      crops = comb_df$crops, 
                       USE.NAMES = TRUE, 
-                      simplify = FALSE)
+                      SIMPLIFY = FALSE,
+                      MoreArgs = list(df = meta))
 
-CS_all <- lapply(CS.out, `[[`, 1) %>%
+## extract results
+## combine dfs
+### correlations
+res_NMDS <- lapply(plots.out, `[[`, 2) %>%
   bind_rows(.)
+### save
+save(res_NMDS, file = "./16S_analyses_files/models/aov-beta.div_traits_NMDS.Rda")
 
-write.csv(CS_all, "./16S_outputs/models/capscale_analyses.csv",
-          row.names = FALSE)
+## extract plots for lettuce, radish, and pea
+
+source("./Source_code/plot-beta.vs.trait_fig.func.R")
+
+# Define crop codes and names
+crops <- list(L = "Lettuce", R = "Radish", P = "Pea")
+
+# Apply the function to each crop
+crop_figs <- lapply(names(crops), function(code) {
+  combine_crop_plots(crop_code = code, crop_name = crops[[code]], plots.out = plots.out)
+})
+
+# Name the list elements
+names(crop_figs) <- names(crops)
+
+# Combine all crop figures into one final figure
+final_fig <- plot_grid(crop_figs$L, crop_figs$R, crop_figs$P,
+                       ncol = 3, nrow = 1, align = "h", labels = NULL)
+
+# Display the final figure
+print(final_fig)
+
+## save
+saveRDS(final_fig, file = "./16S_analyses_files/figs/plot-NMDS.wtraits.rds")
+ggsave("./16S_analyses_files/figs/plot-NMDS.wtraits.png",
+       width = 12, height = 8, units = "in", plot = final_fig,
+       dpi = 400)
+include_graphics("./16S_analyses_files/figs/plot-NMDS.wtraits.png")
 ```
 
 ### PERMANOVA
 
 ```{r beta_permanova}
-# Microbiome data (e.g., OTU table)
-otu_table <- read.csv("./16S_outputs/otu_table_noHOST_rarified.csv", 
-                      row.names = 1)
+## load relevant data
 
-# Metadata
-metadata <- read.csv("./16S_outputs/metadata_cleaned.csv", 
-                     row.names = 1)
+## load metadata file
+load(file = "./16S_analyses_files/meta_div.Rda") ## loads meta
+
+# Example: abundance_table is a data frame or matrix
+# Rows = samples, Columns = taxa
+otu_table <- read.csv("./16S_analyses_files/otu_table-noHOST_pruned1.csv", 
+                      row.names = 1)
 
 
 # Bray-Curtis dissimilarity
@@ -1357,80 +2752,88 @@ bray_dist <- vegdist(otu_table, method = "bray")
 
 # Example with multiple variables
 adonis2_result <- adonis2(bray_dist ~ treat.rn + timepoint, 
-                          data = metadata, permutations = 999,
+                          data = meta, permutations = 999,
                           by = "terms")
 ## check dispersion
-dispersion <- betadisper(bray_dist, metadata$timepoint)
+dispersion <- betadisper(bray_dist, meta$timepoint)
 anova(dispersion)
 boxplot(dispersion)
 plot(dispersion)
-permutest(dispersion, permutations = 999)
 
-## exclude non-experiment samples
-metadata.f <- metadata %>%
-  filter(timepoint %in% c("TP1","TP2")) %>%
-  droplevels(.)
-
-## samples to include
-sample_list <- unique(metadata.f$NAME)
-
-## subset OTU table to these samples
-otu_subset <- otu_table[rownames(otu_table) %in% sample_list, ]
-
-# Bray-Curtis dissimilarity
-bray_dist <- vegdist(otu_subset, method = "bray")
-
-
-# Example with multiple variables
-adonis2_result <- adonis2(bray_dist ~ treat.rn + timepoint, 
-                          data = metadata.f, permutations = 999,
-                          by = "terms")
-## check dispersion
-dispersion <- betadisper(bray_dist, metadata.f$timepoint)
-anova(dispersion)
-boxplot(dispersion)
-plot(dispersion)
-permutest(dispersion, permutations = 999)
-## still significant dispersion between timepoints
+## set seed
+set.seed(123)
+permutest(dispersion, permutations = 999) ## sig
 
 ## look within each timepoint
-source("./Source_code/permanova.func.R")
+source("./Source_code/mod-beta_permanova.func.R")
 
-times.list <- c("TP1","TP2")
+time.list <- c("TP1","TP2")
 
-perm.out <- sapply(times.list, 
+perm.out <- sapply(time.list, 
                    permanova.func,
-                   df = metadata,
+                   df = meta,
                    simplify = FALSE,
                    USE.NAMES = TRUE)
 
 perm_all <- lapply(perm.out, `[[`, 1) %>%
   bind_rows(.)
 
-write.csv(perm_all, "./16S_outputs/models/permanova_analyses.csv",
+perm_all$term <- rownames(perm_all)
+
+write.csv(perm_all, "./16S_analyses_files/models/mod-beta_permanova.csv",
           row.names = FALSE)
 
 
 ```
 
-## Fig 2: microbiome analyses
+## Fig 2 panel: microbiome analyses
 
 ```{r fig2_microbiome}
 ## stitch together with effect comparisons
-alpha_plot <- readRDS("./16S_outputs/figs/alpha_plot.rds")
-beta_plot <- readRDS("./16S_outputs/figs/beta_PCoA.rds")
+alpha_plot <- readRDS("./16S_analyses_files/figs/plots-alpha_div.rds")
+corr <- readRDS("./16S_analyses_files/figs/plot-div.vs.dryPodWeight.rds")
+CAP_plot <- readRDS("./16S_analyses_files/figs/plot-dbRDA.species.wtraits.rds")
+PCoA_plot <- readRDS("./16S_analyses_files/figs/plots-PCoA.rds")
+PCoA_plot.leg <- readRDS("./16S_analyses_files/figs/plots-PCoA.legend.rds")
+pea_CAP <- readRDS("./16S_analyses_files/figs/plot-dbRDA.pea.wtraits.noleg.rds")
 
-micro_plot <- plot_grid(
+# Top row: alpha diversity plots with individual labels
+alpha_plots <- plot_grid(
   alpha_plot,
-  beta_plot,
+  corr,
+  ncol = 2,
+  rel_widths = c(1.3, 0.7),
+  labels = c("A", "B")
+)
+
+
+# Bottom row: CAP plot with label "C"
+cap_plot_labeled <- plot_grid(
+  plot_grid(PCoA_plot,
+            pea_CAP,
+            ncol = 2),
+  PCoA_plot.leg,
+  ncol = 2,
+  rel_widths = c(3, 0.5),
+  labels = "C",
+  label_size = 14
+)
+
+# Combine into final figure
+micro_plot <- plot_grid(
+  alpha_plots,
+  cap_plot_labeled,
   ncol = 1,
   nrow = 2,
-  align = "v",
-  rel_heights = c(1,1))
-micro_plot
-ggsave("./16S_outputs/figs/Fig3.png",
-       width=8, height=8, units = "in")
-include_graphics("./indirect/figs/Fig3.png")
+  rel_heights = c(1, 1)
+)
+
+## cannot print(micro_plot) -- too complex
+## save
+ggsave("./16S_analyses_files/figs/Fig2.png", 
+       plot = micro_plot,
+       width=10, height=12, units = "in")
+include_graphics("./16S_analyses_files/figs/Fig2.png")
 
 ```
 

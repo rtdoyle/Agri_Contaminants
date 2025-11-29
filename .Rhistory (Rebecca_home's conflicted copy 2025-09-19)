@@ -1,0 +1,512 @@
+Df_Residuals, "] = ", stat_contam,
+", p = ", pval_contam, sig_contam)),
+Species = paste0("F [", Df_species, ", ",
+Df_Residuals, "] = ", stat_species,
+", p = ", pval_species, sig_species),
+`Species x Amendment` =
+ifelse(trait %in% c("wet_pod_weight.corr",
+"dry_pod_weight.corr",
+"NDVI_mean",
+"pods",
+"flowers"), NA,
+paste0("F [",
+`Df_species:contam`, ", ",
+Df_Residuals, "] = ",
+`stat_species:contam`,
+", p = ",
+`pval_species:contam`,
+`sig_species:contam`))
+)
+## combine dfs
+### ANOVAs
+aov <- lapply(mod1.out, `[[`, 1) %>%
+bind_rows(.)
+### format
+aov$pval <- ifelse(is.na(aov$`Pr(>F)`) == FALSE,
+signif(aov$`Pr(>F)`, 3),
+signif(aov$`Pr(>Chisq)`, 3))
+aov$stat <- ifelse(is.na(aov$`F value`) == FALSE,
+signif(aov$`F value`, 3),
+signif(aov$`LR Chisq`, 3))
+aov$sig <- ifelse(aov$pval< 0.001, "***",
+ifelse(aov$pval < 0.01, "**",
+ifelse(aov$pval < 0.05, "*",
+ifelse(aov$pval < 0.1, ".",
+"ns"))))
+## pivot wider for each model term
+aov.w <- aov %>%
+select(-c(`F value`,"Pr(>F)", "LR Chisq", "Pr(>Chisq)", "sig")) %>%
+pivot_wider(
+names_from = term,
+values_from = c(stat, pval, Df, `Sum Sq`)
+) ## 15 traits total, 15 rows
+## formatting
+aov.w <- aov.w %>%
+mutate(Amendment = ifelse(trait %in% c("pods","flowers"),
+paste0("X2 = ", stat_contam,
+", df = ", Df_contam,
+", p = ", pval_contam),
+paste0("F [", Df_contam, ", ",
+Df_Residuals, "] = ", stat_contam,
+", p = ", pval_contam, sig_contam)),
+Species = paste0("F [", Df_species, ", ",
+Df_Residuals, "] = ", stat_species,
+", p = ", pval_species, sig_species),
+`Species x Amendment` =
+ifelse(trait %in% c("wet_pod_weight.corr",
+"dry_pod_weight.corr",
+"NDVI_mean",
+"pods",
+"flowers"), NA,
+paste0("F [",
+`Df_species:contam`, ", ",
+Df_Residuals, "] = ",
+`stat_species:contam`,
+", p = ",
+`pval_species:contam`,
+`sig_species:contam`))
+)
+### ANOVAs
+aov <- lapply(mod1.out, `[[`, 1) %>%
+bind_rows(.)
+### format
+aov$pval <- ifelse(is.na(aov$`Pr(>F)`) == FALSE,
+signif(aov$`Pr(>F)`, 3),
+signif(aov$`Pr(>Chisq)`, 3))
+aov$stat <- ifelse(is.na(aov$`F value`) == FALSE,
+signif(aov$`F value`, 3),
+signif(aov$`LR Chisq`, 3))
+aov$sig <- ifelse(aov$pval< 0.001, "***",
+ifelse(aov$pval < 0.01, "**",
+ifelse(aov$pval < 0.05, "*",
+ifelse(aov$pval < 0.1, ".",
+"ns"))))
+## pivot wider for each model term
+aov.w <- aov %>%
+select(-c(`F value`,"Pr(>F)", "LR Chisq", "Pr(>Chisq)")) %>%
+pivot_wider(
+names_from = term,
+values_from = c(stat, pval, Df, `Sum Sq`)
+) ## 15 traits total, 15 rows
+## formatting
+aov.w <- aov.w %>%
+mutate(Amendment = ifelse(trait %in% c("pods","flowers"),
+paste0("X2 = ", stat_contam,
+", df = ", Df_contam,
+", p = ", pval_contam),
+paste0("F [", Df_contam, ", ",
+Df_Residuals, "] = ", stat_contam,
+", p = ", pval_contam, sig_contam)),
+Species = paste0("F [", Df_species, ", ",
+Df_Residuals, "] = ", stat_species,
+", p = ", pval_species, sig_species),
+`Species x Amendment` =
+ifelse(trait %in% c("wet_pod_weight.corr",
+"dry_pod_weight.corr",
+"NDVI_mean",
+"pods",
+"flowers"), NA,
+paste0("F [",
+`Df_species:contam`, ", ",
+Df_Residuals, "] = ",
+`stat_species:contam`,
+", p = ",
+`pval_species:contam`,
+`sig_species:contam`))
+)
+## pivot wider for each model term
+aov.w <- aov %>%
+select(-c(`F value`,"Pr(>F)", "LR Chisq", "Pr(>Chisq)")) %>%
+pivot_wider(
+names_from = term,
+values_from = c(stat, pval, Df, `Sum Sq`, sig)
+) ## 15 traits total, 15 rows
+## formatting
+aov.w <- aov.w %>%
+mutate(Amendment = ifelse(trait %in% c("pods","flowers"),
+paste0("X2 = ", stat_contam,
+", df = ", Df_contam,
+", p = ", pval_contam),
+paste0("F [", Df_contam, ", ",
+Df_Residuals, "] = ", stat_contam,
+", p = ", pval_contam, sig_contam)),
+Species = paste0("F [", Df_species, ", ",
+Df_Residuals, "] = ", stat_species,
+", p = ", pval_species, sig_species),
+`Species x Amendment` =
+ifelse(trait %in% c("wet_pod_weight.corr",
+"dry_pod_weight.corr",
+"NDVI_mean",
+"pods",
+"flowers"), NA,
+paste0("F [",
+`Df_species:contam`, ", ",
+Df_Residuals, "] = ",
+`stat_species:contam`,
+", p = ",
+`pval_species:contam`,
+`sig_species:contam`))
+)
+## pivot wider for each model term
+aov.w <- aov %>%
+select(-c(`F value`,"Pr(>F)", "LR Chisq", "Pr(>Chisq)")) %>%
+pivot_wider(
+names_from = term,
+values_from = c(stat, pval, Df, `Sum Sq`, sig)
+) ## 15 traits total, 15 rows
+## formatting
+aov.w <- aov.w %>%
+mutate(Amendment = ifelse(trait %in% c("pods","flowers"),
+paste0("X2 = ", stat_contam,
+", df = ", Df_contam,
+", p = ", pval_contam),
+paste0("F [", Df_contam, ", ",
+Df_Residuals, "] = ", stat_contam,
+", p = ", pval_contam, sig_contam)),
+Species = ifelse(trait %in% c("wet_pod_weight.corr",
+"dry_pod_weight.corr",
+"NDVI_mean",
+"pods",
+"flowers"), NA,
+paste0("F [", Df_species, ", ",
+Df_Residuals, "] = ", stat_species,
+", p = ", pval_species, sig_species)),
+`Species x Amendment` =
+ifelse(trait %in% c("wet_pod_weight.corr",
+"dry_pod_weight.corr",
+"NDVI_mean",
+"pods",
+"flowers"), NA,
+paste0("F [",
+`Df_species:contam`, ", ",
+Df_Residuals, "] = ",
+`stat_species:contam`,
+", p = ",
+`pval_species:contam`,
+`sig_species:contam`))
+)
+View(aov.w)
+names(aov.w)
+## pivot wider for each model term
+aov.w <- aov %>%
+select(-c(`F value`,"Pr(>F)", "LR Chisq", "Pr(>Chisq)")) %>%
+pivot_wider(
+names_from = term,
+values_from = c(stat, pval, Df, `Sum Sq`, sig)
+) ## 15 traits total, 15 rows
+## formatting
+aov.f <- aov.w %>%
+mutate(Amendment = ifelse(trait %in% c("pods","flowers"),
+paste0("X2 = ", stat_contam,
+", df = ", Df_contam,
+", p = ", pval_contam),
+paste0("F [", Df_contam, ", ",
+Df_Residuals, "] = ", stat_contam,
+", p = ", pval_contam, sig_contam)),
+Species = ifelse(trait %in% c("wet_pod_weight.corr",
+"dry_pod_weight.corr",
+"NDVI_mean",
+"pods",
+"flowers"), NA,
+paste0("F [", Df_species, ", ",
+Df_Residuals, "] = ", stat_species,
+", p = ", pval_species, sig_species)),
+`Species x Amendment` =
+ifelse(trait %in% c("wet_pod_weight.corr",
+"dry_pod_weight.corr",
+"NDVI_mean",
+"pods",
+"flowers"), NA,
+paste0("F [",
+`Df_species:contam`, ", ",
+Df_Residuals, "] = ",
+`stat_species:contam`,
+", p = ",
+`pval_species:contam`,
+`sig_species:contam`))
+) %>%
+select(trait, Species, Amendment, `Species x Amendment`)
+View(aov.f)
+## formatting
+aov.f <- aov.w %>%
+mutate(Amendment = ifelse(trait %in% c("pods","flowers"),
+paste0("X2 = ", stat_contam,
+", df = ", Df_contam,
+", p = ", pval_contam),
+paste0("F [", Df_contam, ", ",
+Df_Residuals, "] = ", stat_contam,
+", p = ", pval_contam, sig_contam)),
+Species = ifelse(trait %in% c("wet_pod_weight.corr",
+"dry_pod_weight.corr",
+"NDVI_mean",
+"pods",
+"flowers"), "N/A (Pea only)",
+paste0("F [", Df_species, ", ",
+Df_Residuals, "] = ", stat_species,
+", p = ", pval_species, sig_species)),
+`Species x Amendment` =
+ifelse(trait %in% c("wet_pod_weight.corr",
+"dry_pod_weight.corr",
+"NDVI_mean",
+"pods",
+"flowers"), "N/A (Pea only)",
+paste0("F [",
+`Df_species:contam`, ", ",
+Df_Residuals, "] = ",
+`stat_species:contam`,
+", p = ",
+`pval_species:contam`,
+`sig_species:contam`))
+) %>%
+select(trait, Species, Amendment, `Species x Amendment`)
+View(aov.f)
+## formatting
+aov.f <- aov.w %>%
+mutate(Amendment = ifelse(trait %in% c("pods","flowers"),
+paste0("X2 = ", stat_contam,
+", df = ", Df_contam,
+", p = ", pval_contam,
+sig_contam),
+paste0("F [", Df_contam, ", ",
+Df_Residuals, "] = ", stat_contam,
+", p = ", pval_contam, sig_contam)),
+Species = ifelse(trait %in% c("wet_pod_weight.corr",
+"dry_pod_weight.corr",
+"NDVI_mean",
+"pods",
+"flowers"), "N/A (Pea only)",
+paste0("F [", Df_species, ", ",
+Df_Residuals, "] = ", stat_species,
+", p = ", pval_species, sig_species)),
+`Species x Amendment` =
+ifelse(trait %in% c("wet_pod_weight.corr",
+"dry_pod_weight.corr",
+"NDVI_mean",
+"pods",
+"flowers"), "N/A (Pea only)",
+paste0("F [",
+`Df_species:contam`, ", ",
+Df_Residuals, "] = ",
+`stat_species:contam`,
+", p = ",
+`pval_species:contam`,
+`sig_species:contam`))
+) %>%
+select(trait, Species, Amendment, `Species x Amendment`)
+View(aov.f)
+### ANOVAs
+aov <- lapply(mod1.out, `[[`, 1) %>%
+bind_rows(.)
+### format
+aov$pval <- ifelse(is.na(aov$`Pr(>F)`) == FALSE,
+signif(aov$`Pr(>F)`, 3),
+signif(aov$`Pr(>Chisq)`, 3))
+aov$pval.c <- ifelse(aov$pval < 0.001, " < 0.001",
+aov$pval)
+aov$stat <- ifelse(is.na(aov$`F value`) == FALSE,
+signif(aov$`F value`, 3),
+signif(aov$`LR Chisq`, 3))
+aov$sig <- ifelse(aov$pval< 0.001, "***",
+ifelse(aov$pval < 0.01, "**",
+ifelse(aov$pval < 0.05, "*",
+ifelse(aov$pval < 0.1, ".",
+"ns"))))
+## combine dfs
+### ANOVAs
+aov <- lapply(mod1.out, `[[`, 1) %>%
+bind_rows(.)
+### format
+aov$pval <- ifelse(is.na(aov$`Pr(>F)`) == FALSE,
+signif(aov$`Pr(>F)`, 3),
+signif(aov$`Pr(>Chisq)`, 3))
+aov$pval.c <- ifelse(aov$pval < 0.001, " < 0.001",
+aov$pval)
+aov$stat <- ifelse(is.na(aov$`F value`) == FALSE,
+signif(aov$`F value`, 3),
+signif(aov$`LR Chisq`, 3))
+aov$sig <- ifelse(aov$pval< 0.001, "***",
+ifelse(aov$pval < 0.01, "**",
+ifelse(aov$pval < 0.05, "*",
+ifelse(aov$pval < 0.1, ".",
+"ns"))))
+## pivot wider for each model term
+aov.w <- aov %>%
+select(-c(`F value`,"Pr(>F)", "LR Chisq",
+"Pr(>Chisq)","pval")) %>%
+pivot_wider(
+names_from = term,
+values_from = c(stat, pval.c, Df, `Sum Sq`, sig)
+) ## 15 traits total, 15 rows
+View(aov.w)
+## combine dfs
+### ANOVAs
+aov <- lapply(mod1.out, `[[`, 1) %>%
+bind_rows(.)
+### format
+aov$pval <- ifelse(is.na(aov$`Pr(>F)`) == FALSE,
+signif(aov$`Pr(>F)`, 3),
+signif(aov$`Pr(>Chisq)`, 3))
+aov$pval.c <- ifelse(aov$pval < 0.001, " < 0.001",
+aov$pval)
+aov$stat <- ifelse(is.na(aov$`F value`) == FALSE,
+signif(aov$`F value`, 3),
+signif(aov$`LR Chisq`, 3))
+aov$sig <- ifelse(aov$pval< 0.001, "***",
+ifelse(aov$pval < 0.01, "**",
+ifelse(aov$pval < 0.05, "*",
+ifelse(aov$pval < 0.1, ".",
+"ns"))))
+## pivot wider for each model term
+aov.w <- aov %>%
+select(-c(`F value`,"Pr(>F)", "LR Chisq",
+"Pr(>Chisq)","pval")) %>%
+pivot_wider(
+names_from = term,
+values_from = c(stat, pval.c, Df, `Sum Sq`, sig)
+) ## 15 traits total, 15 rows
+## formatting
+aov.f <- aov.w %>%
+mutate(Amendment = ifelse(trait %in% c("pods","flowers"),
+paste0("X2 = ", stat_contam,
+", df = ", Df_contam,
+", p = ", pval.c_contam,
+sig_contam),
+paste0("F [", Df_contam, ", ",
+Df_Residuals, "] = ", stat_contam,
+", p = ", pval.c_contam,
+sig_contam)),
+Species = ifelse(trait %in% c("wet_pod_weight.corr",
+"dry_pod_weight.corr",
+"NDVI_mean",
+"pods",
+"flowers"), "N/A (Pea only)",
+paste0("F [", Df_species, ", ",
+Df_Residuals, "] = ", stat_species,
+", p = ", pval.c_species, sig_species)),
+`Species x Amendment` =
+ifelse(trait %in% c("wet_pod_weight.corr",
+"dry_pod_weight.corr",
+"NDVI_mean",
+"pods",
+"flowers"), "N/A (Pea only)",
+paste0("F [",
+`Df_species:contam`, ", ",
+Df_Residuals, "] = ",
+`stat_species:contam`,
+", p = ",
+`pval.c_species:contam`,
+`sig_species:contam`))
+) %>%
+select(trait, Species, Amendment, `Species x Amendment`)
+View(aov.f)
+aov <- lapply(mod1.out, `[[`, 1) %>%
+bind_rows(.)
+### format
+aov$pval <- ifelse(is.na(aov$`Pr(>F)`) == FALSE,
+signif(aov$`Pr(>F)`, 3),
+signif(aov$`Pr(>Chisq)`, 3))
+aov$sig <- ifelse(aov$pval< 0.001, " < 0.001",
+ifelse(aov$pval < 0.01, aov$pval,
+ifelse(aov$pval < 0.05, aov$pval,
+ifelse(aov$pval < 0.1, paste0(aov$pval, "MS"),
+" > 0.1"))))
+aov$stat <- ifelse(is.na(aov$`F value`) == FALSE,
+signif(aov$`F value`, 3),
+signif(aov$`LR Chisq`, 3))
+## pivot wider for each model term
+aov.w <- aov %>%
+select(-c(`F value`,"Pr(>F)", "LR Chisq",
+"Pr(>Chisq)","pval")) %>%
+pivot_wider(
+names_from = term,
+values_from = c(stat, Df, `Sum Sq`, sig)
+) ## 15 traits total, 15 rows
+## formatting
+aov.f <- aov.w %>%
+mutate(Amendment = ifelse(trait %in% c("pods","flowers"),
+paste0("X2 = ", stat_contam,
+", df = ", Df_contam,
+", p = ",
+sig_contam),
+paste0("F [", Df_contam, ", ",
+Df_Residuals, "] = ", stat_contam,
+", p = ",
+sig_contam)),
+Species = ifelse(trait %in% c("wet_pod_weight.corr",
+"dry_pod_weight.corr",
+"NDVI_mean",
+"pods",
+"flowers"), "N/A (Pea only)",
+paste0("F [", Df_species, ", ",
+Df_Residuals, "] = ", stat_species,
+", p = ", sig_species)),
+`Species x Amendment` =
+ifelse(trait %in% c("wet_pod_weight.corr",
+"dry_pod_weight.corr",
+"NDVI_mean",
+"pods",
+"flowers"), "N/A (Pea only)",
+paste0("F [",
+`Df_species:contam`, ", ",
+Df_Residuals, "] = ",
+`stat_species:contam`,
+", p = ",
+`sig_species:contam`))
+) %>%
+select(trait, Species, Amendment, `Species x Amendment`)
+View(aov.f)
+## combine dfs
+### ANOVAs
+aov <- lapply(mod1.out, `[[`, 1) %>%
+bind_rows(.)
+### format
+aov$pval <- ifelse(is.na(aov$`Pr(>F)`) == FALSE,
+signif(aov$`Pr(>F)`, 3),
+signif(aov$`Pr(>Chisq)`, 3))
+aov$sig <- ifelse(aov$pval< 0.001, "p < 0.001",
+ifelse(aov$pval < 0.01, paste0("p = ", aov$pval, "**"),
+ifelse(aov$pval < 0.05, paste0("p = ", aov$pval, "*"),
+ifelse(aov$pval < 0.1, paste0(aov$pval, "."),
+"p > 0.1"))))
+aov$stat <- ifelse(is.na(aov$`F value`) == FALSE,
+signif(aov$`F value`, 3),
+signif(aov$`LR Chisq`, 3))
+## pivot wider for each model term
+aov.w <- aov %>%
+select(-c(`F value`,"Pr(>F)", "LR Chisq",
+"Pr(>Chisq)","pval")) %>%
+pivot_wider(
+names_from = term,
+values_from = c(stat, Df, `Sum Sq`, sig)
+) ## 15 traits total, 15 rows
+## formatting
+aov.f <- aov.w %>%
+mutate(Amendment = ifelse(trait %in% c("pods","flowers"),
+paste0("X2 = ", stat_contam,
+", df = ", Df_contam,
+sig_contam),
+paste0("F [", Df_contam, ", ",
+Df_Residuals, "] = ", stat_contam,
+sig_contam)),
+Species = ifelse(trait %in% c("wet_pod_weight.corr",
+"dry_pod_weight.corr",
+"NDVI_mean",
+"pods",
+"flowers"), "N/A (Pea only)",
+paste0("F [", Df_species, ", ",
+Df_Residuals, "] = ", stat_species,
+sig_species)),
+`Species x Amendment` =
+ifelse(trait %in% c("wet_pod_weight.corr",
+"dry_pod_weight.corr",
+"NDVI_mean",
+"pods",
+"flowers"), "N/A (Pea only)",
+paste0("F [",
+`Df_species:contam`, ", ",
+Df_Residuals, "] = ",
+`stat_species:contam`,
+`sig_species:contam`))
+) %>%
+select(trait, Species, Amendment, `Species x Amendment`)
+View(aov.f)
