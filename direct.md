@@ -1,8 +1,7 @@
 Direct exposure experiment: effects of amendments and contamination
-concentration on crop performance
 ================
 RTD, II
-2025-11-28
+2026-01-27
 
 ## Direct impacts of amendinants on crop growth
 
@@ -192,7 +191,7 @@ write.csv(direct, "./direct_files/raw_data.formatted.csv",
           row.names = FALSE)
 ```
 
-### Examine correlations among traits
+### 1) Examine trait correlations
 
 Ensuring we are picking traits that are not highly correlated
 
@@ -244,7 +243,7 @@ trait.list.all <- c(
                 "dry_pod_weight",
                 "per_pod_weight",
                 "infected_peas_perc",
-                ## "NDVI_mean", ## too many NAs
+                ## "NDVI_mean", ## too many NAs due to low survival
                 "pods",
                 "flowers")
 
@@ -256,7 +255,7 @@ direct_cols_df <- direct[, c(trait.list.all, "species", "sample_ID")]
 #   mutate(across(where(is.numeric), ~ ifelse(is.na(.), 0, .)))
 
 ## run the following function to examine correlations across and within species
-source("./Source_code/run_corr.func.R")
+source("./Source_code/1_direct-plot_corr.func.R")
 
 all_traits <- c("wet_shoot_weight", "dry_shoot_weight", "wet_root_weight", "dry_root_weight",
             "dry_total_weight", "per_plant_weight", "shoot_moisture", "shoot_root_ratio",
@@ -355,7 +354,7 @@ result <- run_corr(data = direct_cols_df,
 
 ### Direct exposure experiment: models
 
-#### Model 1: amendment x species
+#### 2) Model: amendment x species (SP-0)
 
 Impact of amendment type on plant traits, compared across different crop
 species
@@ -394,7 +393,7 @@ if (!dir.exists(output_dir)) {
 }
 
 ## source function
-source("./Source_code/mod-direct_species.vs.amend.func.R")
+source("./Source_code/2_direct-mod_species.vs.amend.func.R")
 
 ## model
 mod.out <- sapply(trait.list, 
@@ -729,11 +728,11 @@ aov <- lapply(mod.out, `[[`, 1) %>%
 aov$pval <- ifelse(is.na(aov$`Pr(>F)`) == FALSE,
                    signif(aov$`Pr(>F)`, 3),
                    signif(aov$`Pr(>Chisq)`, 3))
-aov$sig <- ifelse(aov$pval< 0.001, ", p < 0.001",
-            ifelse(aov$pval < 0.01, paste0(", p = ", aov$pval, "**"),
-            ifelse(aov$pval < 0.05, paste0(", p = ", aov$pval, "*"),
-            ifelse(aov$pval < 0.1, paste0(", p = ", aov$pval, "."),
-                               ", p > 0.1"))))
+aov$sig <- ifelse(aov$pval< 0.001, ", P < 0.001",
+            ifelse(aov$pval < 0.01, paste0(", P = ", aov$pval, "**"),
+            ifelse(aov$pval < 0.05, paste0(", P = ", aov$pval, "*"),
+            ifelse(aov$pval < 0.1, paste0(", P = ", aov$pval, "."),
+                               ", P > 0.1"))))
 aov$stat <- ifelse(is.na(aov$`F value`) == FALSE,
                         signif(aov$`F value`, 3),
                         signif(aov$`LR Chisq`, 3))
@@ -798,11 +797,11 @@ cont$crop <- ifelse(is.na(cont$species) == TRUE, "pea",
 ## round pval
 cont$pval <- signif(cont$p.value, 3)
 ### format
-cont$sig <- ifelse(cont$p.value < 0.001, ", p < 0.001",
-            ifelse(cont$p.value < 0.01, paste0(", p = ", cont$pval, "**"),
-            ifelse(cont$p.value < 0.05, paste0(", p = ", cont$pval, "*"),
-            ifelse(cont$p.value < 0.1, paste0(", p = ", cont$pval, "."),
-                               ", p > 0.1"))))
+cont$sig <- ifelse(cont$p.value < 0.001, ", P < 0.001",
+            ifelse(cont$p.value < 0.01, paste0(", P = ", cont$pval, "**"),
+            ifelse(cont$p.value < 0.05, paste0(", P = ", cont$pval, "*"),
+            ifelse(cont$p.value < 0.1, paste0(", P = ", cont$pval, "."),
+                               ", P > 0.1"))))
 ## test stats
 cont$stat <- ifelse(is.na(cont$t.ratio) == FALSE,
                         signif(cont$t.ratio, 3),
@@ -826,15 +825,17 @@ cont$UCL <- ifelse(is.na(cont$upper.CL) == TRUE,
 cont$log2FC_CL <- paste0(signif(cont$log2FC, 3), " [",
                         cont$LCL," to ",
                         cont$UCL,"]")
-## save as R data file
+## save as R data file (full version)
 save(cont, file = paste0(output_dir, "cont1-species.vs.amend.Rdata"))
-## save as csv
+## save as csv (Supp file)
 cont.s <- cont %>%
-  select(contrast, crop, trait, log2FC_CL, stat.f)
+  mutate(amend = ifelse(grepl("RW", contrast, fixed = FALSE) == TRUE,
+                        "RW", "BS")) %>%
+  select(trait, crop, amend, log2FC_CL, stat.f)
 write_csv(cont.s, file = paste0(output_dir, "cont1-species.vs.amend.csv"))
 
 ## save relevant output for table
-cont.s <- cont %>%
+cont.f <- cont %>%
   filter(p.value < 0.1) %>%
   mutate(
     contrast_info = paste0(crop, "_", contrast, ": ", 
@@ -848,26 +849,35 @@ cont.s <- cont %>%
     )
 
 ## add to anova
-aov.f$sig_contrasts <- cont.s$sig_contrasts[match(aov.f$trait, cont.s$trait)] 
+aov.f$sig_contrasts <- cont.f$sig_contrasts[match(aov.f$trait, cont.f$trait)] 
 ## save
 write.csv(aov.f, file = paste0(output_dir, "aov1-species.vs.amend.csv"), 
           row.names = FALSE)
-kable(aov.f)
+## print nicely
+knitr::kable(
+ aov.f,
+  format = "markdown",   # ensures Markdown-friendly table
+  digits = 3,
+  align = "c",
+  caption = "ANOVA (T3SS) for amendment and species impacts on performance"
+)
 ```
 
 | trait | Species | Amendment | Species x Amendment | sig_contrasts |
-|:---|:---|:---|:---|:---|
-| dry_total_weight | F \[2, 18\] = 12.8, p \< 0.001 | F \[2, 18\] = 1.44, p \> 0.1 | F \[4, 18\] = 0.302, p \> 0.1 | NA |
-| per_plant_weight | F \[2, 18\] = 37.2, p \< 0.001 | F \[2, 18\] = 0.32, p \> 0.1 | F \[4, 18\] = 0.599, p \> 0.1 | NA |
-| shoot_moisture | F \[2, 18\] = 27.5, p \< 0.001 | F \[2, 18\] = 0.419, p \> 0.1 | F \[4, 18\] = 2.75, p = 0.0602. | radish_BS / control: t = 2.37, df = 18, p = 0.0544.; log2FC \[95% CL\] = 0.794 \[-0.014 to 1.6\] |
-| shoot_root_ratio | F \[2, 18\] = 26, p \< 0.001 | F \[2, 18\] = 3.08, p = 0.0705. | F \[4, 18\] = 0.988, p \> 0.1 | NA |
-| germination_perc | F \[2, 18\] = 2.1, p \> 0.1 | F \[2, 18\] = 4.61, p = 0.0241\* | F \[4, 18\] = 0.887, p \> 0.1 | pea_BS / control: t = -2.12, df = 18, p = 0.0885.; log2FC \[95% CL\] = -1.27 \[-2.71 to 0.174\] \| all_BS / control: t = -2.14, df = 18, p = 0.0854.; log2FC \[95% CL\] = -0.739 \[-1.57 to 0.0942\] |
-| survival_perc.corr | F \[2, 18\] = 10.6, p \< 0.001 | F \[2, 18\] = 4.51, p = 0.0259\* | F \[4, 18\] = 2.61, p = 0.0703. | pea_BS / control: t = -2.87, df = 18, p = 0.0197\*; log2FC \[95% CL\] = -1.24 \[-2.28 to -0.195\] |
-| dry_pod_weight.corr | N/A (Pea only) | F \[2, 6\] = 0.582, p \> 0.1 | N/A (Pea only) | NA |
-| per_pod_weight | N/A (Pea only) | F \[2, 6\] = 0.111, p \> 0.1 | N/A (Pea only) | NA |
-| NDVI_mean | N/A (Pea only) | F \[2, 5\] = 0.142, p \> 0.1 | N/A (Pea only) | NA |
-| pods | N/A (Pea only) | X2 = 5.7, df = 2, p = 0.0578. | N/A (Pea only) | pea_RW / control: z = 1.95, p = 0.0962.; log2FC \[95% CL\] = 0.666 \[-0.0945 to 1.43\] |
-| flowers | N/A (Pea only) | X2 = 3.76, df = 2, p \> 0.1 | N/A (Pea only) | NA |
+|:--:|:--:|:--:|:--:|:--:|
+| dry_total_weight | F \[2, 18\] = 12.8, P \< 0.001 | F \[2, 18\] = 1.44, P \> 0.1 | F \[4, 18\] = 0.302, P \> 0.1 | NA |
+| per_plant_weight | F \[2, 18\] = 37.2, P \< 0.001 | F \[2, 18\] = 0.32, P \> 0.1 | F \[4, 18\] = 0.599, P \> 0.1 | NA |
+| shoot_moisture | F \[2, 18\] = 27.5, P \< 0.001 | F \[2, 18\] = 0.419, P \> 0.1 | F \[4, 18\] = 2.75, P = 0.0602. | radish_BS / control: t = 2.37, df = 18, P = 0.0544.; log2FC \[95% CL\] = 0.794 \[-0.014 to 1.6\] |
+| shoot_root_ratio | F \[2, 18\] = 26, P \< 0.001 | F \[2, 18\] = 3.08, P = 0.0705. | F \[4, 18\] = 0.988, P \> 0.1 | NA |
+| germination_perc | F \[2, 18\] = 2.1, P \> 0.1 | F \[2, 18\] = 4.61, P = 0.0241\* | F \[4, 18\] = 0.887, P \> 0.1 | pea_BS / control: t = -2.12, df = 18, P = 0.0885.; log2FC \[95% CL\] = -1.27 \[-2.71 to 0.174\] \| all_BS / control: t = -2.14, df = 18, P = 0.0854.; log2FC \[95% CL\] = -0.739 \[-1.57 to 0.0942\] |
+| survival_perc.corr | F \[2, 18\] = 10.6, P \< 0.001 | F \[2, 18\] = 4.51, P = 0.0259\* | F \[4, 18\] = 2.61, P = 0.0703. | pea_BS / control: t = -2.87, df = 18, P = 0.0197\*; log2FC \[95% CL\] = -1.24 \[-2.28 to -0.195\] |
+| dry_pod_weight.corr | N/A (Pea only) | F \[2, 6\] = 0.582, P \> 0.1 | N/A (Pea only) | NA |
+| per_pod_weight | N/A (Pea only) | F \[2, 6\] = 0.111, P \> 0.1 | N/A (Pea only) | NA |
+| NDVI_mean | N/A (Pea only) | F \[2, 5\] = 0.142, P \> 0.1 | N/A (Pea only) | NA |
+| pods | N/A (Pea only) | X2 = 5.7, df = 2, P = 0.0578. | N/A (Pea only) | pea_RW / control: z = 1.95, P = 0.0962.; log2FC \[95% CL\] = 0.666 \[-0.0945 to 1.43\] |
+| flowers | N/A (Pea only) | X2 = 3.76, df = 2, P \> 0.1 | N/A (Pea only) | NA |
+
+ANOVA (T3SS) for amendment and species impacts on performance
 
 ``` r
 ### emmeans
@@ -877,7 +887,7 @@ write.csv(emm, file = paste0(output_dir, "emm1-species.vs.amend.csv"),
           row.names = FALSE)
 ```
 
-#### Model 2: species x contamination level
+#### 3) Model: species x contamination level
 
 Impact of contamination concentration on plant traits, compared within
 amendment types
@@ -927,7 +937,7 @@ if (!dir.exists(output_dir)) {
 }
 
 ## source the function:
-source("./Source_code/mod-direct_species.vs.contam.func.R")
+source("./Source_code/3_direct-mod_species.vs.contam.func.R")
 
 mod.out <- mapply(FUN = mod_species.vs.contam, 
                       combs = comb_df$combs, 
@@ -1575,10 +1585,10 @@ aov <- lapply(mod.out, `[[`, 1) %>%
 aov$pval <- ifelse(is.na(aov$`Pr(>F)`) == FALSE,
                    signif(aov$`Pr(>F)`, 3),
                    signif(aov$`Pr(>Chisq)`, 3))
-aov$sig <- ifelse(aov$pval< 0.001, ", p < 0.001",
-            ifelse(aov$pval < 0.01, paste0(", p = ", aov$pval, "**"),
-            ifelse(aov$pval < 0.05, paste0(", p = ", aov$pval, "*"),
-            ifelse(aov$pval < 0.1, paste0(", p = ", aov$pval, "."),
+aov$sig <- ifelse(aov$pval< 0.001, ", P < 0.001",
+            ifelse(aov$pval < 0.01, paste0(", P = ", aov$pval, "**"),
+            ifelse(aov$pval < 0.05, paste0(", P = ", aov$pval, "*"),
+            ifelse(aov$pval < 0.1, paste0(", P = ", aov$pval, "."),
                                ", p > 0.1"))))
 aov$stat <- ifelse(is.na(aov$`F value`) == FALSE,
                         signif(aov$`F value`, 3),
@@ -1637,6 +1647,8 @@ cont.SL.germ.RW <- mod.out[["germination_perc_RW"]][[4]]
 cont.SL.germ.BS <- mod.out[["germination_perc_BS"]][[4]]
 cont.SL.surv.RW <- mod.out[["survival_perc.corr_RW"]][[4]]
 cont.SL.surv.BS <- mod.out[["survival_perc.corr_BS"]][[4]]
+
+## combine
 cont <- rbind(cont, cont.SL.germ.RW, cont.SL.surv.RW,
               cont.SL.germ.BS, cont.SL.surv.BS)
 
@@ -1647,10 +1659,10 @@ cont$crop <- ifelse(is.na(cont$species) == TRUE, "pea",
 ## round pval
 cont$pval <- signif(cont$p.value, 3)
 ### format
-cont$sig <- ifelse(cont$p.value < 0.001, ", p < 0.001",
-            ifelse(cont$p.value < 0.01, paste0(", p = ", cont$pval, "**"),
-            ifelse(cont$p.value < 0.05, paste0(", p = ", cont$pval, "*"),
-            ifelse(cont$p.value < 0.1, paste0(", p = ", cont$pval, "."),
+cont$sig <- ifelse(cont$p.value < 0.001, ", P < 0.001",
+            ifelse(cont$p.value < 0.01, paste0(", P = ", cont$pval, "**"),
+            ifelse(cont$p.value < 0.05, paste0(", P = ", cont$pval, "*"),
+            ifelse(cont$p.value < 0.1, paste0(", P = ", cont$pval, "."),
                                ", p > 0.1"))))
 ## test stats
 cont$stat <- ifelse(is.na(cont$t.ratio) == FALSE,
@@ -1678,12 +1690,35 @@ cont$Est_CL <- paste0(cont$Est_r, " [",
 ## save as R data file
 save(cont, file = paste0(output_dir, "cont2-species.vs.contam.Rdata"))
 ## save as csv
-cont.s <- cont %>%
-  select(contrast, amend, crop, trait, Est_CL, stat.f)
-write_csv(cont.s, file = paste0(output_dir, "cont2-species.vs.contam.csv"))
+cont.w <- cont %>%
+  select(contrast, amend, crop, trait, Est_CL, stat.f) %>%
+  pivot_wider(
+    names_from = "contrast",
+    values_from = c("Est_CL", "stat.f")
+  ) %>%
+  select(trait, crop, amend, Est_CL_linear, stat.f_linear,
+          Est_CL_quadratic, stat.f_quadratic)
+
+cont1 <- read_csv(file = paste0(output_dir, "cont1-species.vs.amend.csv"))
+```
+
+    ## Rows: 50 Columns: 5
+
+    ## ── Column specification ────────────────────────────────────────────────────────
+    ## Delimiter: ","
+    ## chr (5): trait, crop, amend, log2FC_CL, stat.f
+    ## 
+    ## ℹ Use `spec()` to retrieve the full column specification for this data.
+    ## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+
+``` r
+cont.s <- cont1 %>%
+  left_join(., cont.w, by = c("trait", "crop", "amend"))
+  
+write_csv(cont.s, file = paste0("Supplementary_files/File_S1-direct.csv"))
 
 ## save relevant output for table
-cont.s <- cont %>%
+cont.f <- cont %>%
   filter(p.value < 0.1) %>%
   mutate(
     contrast_info = paste0(crop, "_", contrast, ": ", 
@@ -1702,35 +1737,44 @@ cont.s <- cont %>%
 
 ``` r
 ## add to anova
-aov.f <- left_join(aov.f, cont.s, by = c("trait","Amendment"))
+aov.f <- left_join(aov.f, cont.f, by = c("trait","Amendment"))
 ## save
 write.csv(aov.f, file = paste0(output_dir, "aov2-species.vs.contam.csv"), 
           row.names = FALSE)
-kable(aov.f)
+## print nicely
+knitr::kable(
+  aov.f,
+  format = "markdown",   # ensures Markdown-friendly table
+  digits = 3,
+  align = "c",
+  caption = "ANOVA (T3SS) for contaminant and species impacts on performance"
+)
 ```
 
 | trait | Amendment | Species | Spiking level (SL) | Species x SL | sig_contrasts |
-|:---|:---|:---|:---|:---|:---|
-| dry_total_weight | RW | F \[2, 18\] = 41.9, p \< 0.001 | F \[2, 18\] = 0.505, p \> 0.1 | F \[4, 18\] = 2.37, p = 0.0908. | lettuce_quadratic: t = -1.91, df = 18, p = 0.0726.; Est. \[95% CL\] = -0.666 \[-1.4 to 0.0676\] \| radish_quadratic: t = 2.42, df = 18, p = 0.0263\*; Est. \[95% CL\] = 0.845 \[0.112 to 1.58\] |
-| dry_total_weight | BS | F \[2, 17\] = 32.2, p \< 0.001 | F \[2, 17\] = 0.256, p \> 0.1 | F \[4, 17\] = 1.78, p \> 0.1 | pea_linear: t = -2.38, df = 17, p = 0.0294\*; Est. \[95% CL\] = -1.19 \[-2.24 to -0.134\] |
-| per_plant_weight | RW | F \[2, 18\] = 69.8, p \< 0.001 | F \[2, 18\] = 1.49, p \> 0.1 | F \[4, 18\] = 4.2, p = 0.0142\* | lettuce_quadratic: t = -2.96, df = 18, p = 0.00833\*\*; Est. \[95% CL\] = -1.05 \[-1.79 to -0.305\] \| radish_quadratic: t = 2.39, df = 18, p = 0.0279\*; Est. \[95% CL\] = 0.845 \[0.103 to 1.59\] \| pea_quadratic: t = -2.09, df = 18, p = 0.051.; Est. \[95% CL\] = -0.739 \[-1.48 to 0.00366\] |
-| per_plant_weight | BS | F \[2, 17\] = 22, p \< 0.001 | F \[2, 17\] = 4.69, p = 0.0239\* | F \[4, 17\] = 2.77, p = 0.0608. | lettuce_linear: t = 3.18, df = 17, p = 0.00549**; Est. \[95% CL\] = 0.928 \[0.312 to 1.54\] \| pea_quadratic: t = -3.18, df = 17, p = 0.00547**; Est. \[95% CL\] = -1.67 \[-2.78 to -0.564\] |
-| shoot_moisture | RW | F \[2, 18\] = 34.2, p \< 0.001 | F \[2, 18\] = 0.0038, p \> 0.1 | F \[4, 18\] = 4.22, p = 0.0139\* | radish_quadratic: t = -2.96, df = 18, p = 0.00831\*\*; Est. \[95% CL\] = -0.819 \[-1.4 to -0.238\] \| pea_quadratic: t = 2.64, df = 18, p = 0.0168\*; Est. \[95% CL\] = 0.728 \[0.148 to 1.31\] |
-| shoot_moisture | BS | F \[2, 17\] = 67.4, p \< 0.001 | F \[2, 17\] = 1.94, p \> 0.1 | F \[4, 17\] = 0.406, p \> 0.1 | NA |
-| shoot_root_ratio | RW | F \[2, 18\] = 32.3, p \< 0.001 | F \[2, 18\] = 0.642, p \> 0.1 | F \[4, 18\] = 0.943, p \> 0.1 | NA |
-| shoot_root_ratio | BS | F \[2, 17\] = 18.8, p \< 0.001 | F \[2, 17\] = 0.793, p \> 0.1 | F \[4, 17\] = 0.755, p \> 0.1 | NA |
-| germination_perc | RW | F \[2, 18\] = 2.58, p \> 0.1 | F \[2, 18\] = 5.23, p = 0.0162\* | F \[4, 18\] = 0.316, p \> 0.1 | pea_quadratic: t = 2.78, df = 18, p = 0.0124\*; Est. \[95% CL\] = 0.707 \[0.172 to 1.24\] \| all_quadratic: t = 3.22, df = 18, p = 0.00471\*\*; Est. \[95% CL\] = 0.474 \[0.165 to 0.783\] |
-| germination_perc | BS | F \[2, 18\] = 38.1, p \< 0.001 | F \[2, 18\] = 1.98, p \> 0.1 | F \[4, 18\] = 4.3, p = 0.0129\* | pea_linear: t = -4.25, df = 18, p \< 0.001; Est. \[95% CL\] = -2 \[-2.99 to -1.01\] \| all_linear: t = -1.99, df = 18, p = 0.0625.; Est. \[95% CL\] = -0.539 \[-1.11 to 0.0312\] |
-| survival_perc.corr | RW | F \[2, 18\] = 8.2, p = 0.00294\*\* | F \[2, 18\] = 3.89, p = 0.0393\* | F \[4, 18\] = 0.228, p \> 0.1 | pea_quadratic: t = 2.37, df = 18, p = 0.0294*; Est. \[95% CL\] = 0.756 \[0.0848 to 1.43\] \| all_quadratic: t = 2.79, df = 18, p = 0.0121*; Est. \[95% CL\] = 0.514 \[0.127 to 0.902\] |
-| survival_perc.corr | BS | F \[2, 18\] = 60.9, p \< 0.001 | F \[2, 18\] = 3.36, p = 0.0576. | F \[4, 18\] = 3.08, p = 0.0425\* | pea_linear: t = -4.23, df = 18, p \< 0.001; Est. \[95% CL\] = -1.81 \[-2.7 to -0.908\] \| all_linear: t = -2.56, df = 18, p = 0.0197\*; Est. \[95% CL\] = -0.632 \[-1.15 to -0.113\] |
+|:--:|:--:|:--:|:--:|:--:|:--:|
+| dry_total_weight | RW | F \[2, 18\] = 41.9, P \< 0.001 | F \[2, 18\] = 0.505, p \> 0.1 | F \[4, 18\] = 2.37, P = 0.0908. | lettuce_quadratic: t = -1.91, df = 18, P = 0.0726.; Est. \[95% CL\] = -0.666 \[-1.4 to 0.0676\] \| radish_quadratic: t = 2.42, df = 18, P = 0.0263\*; Est. \[95% CL\] = 0.845 \[0.112 to 1.58\] |
+| dry_total_weight | BS | F \[2, 17\] = 32.2, P \< 0.001 | F \[2, 17\] = 0.256, p \> 0.1 | F \[4, 17\] = 1.78, p \> 0.1 | pea_linear: t = -2.38, df = 17, P = 0.0294\*; Est. \[95% CL\] = -1.19 \[-2.24 to -0.134\] |
+| per_plant_weight | RW | F \[2, 18\] = 69.8, P \< 0.001 | F \[2, 18\] = 1.49, p \> 0.1 | F \[4, 18\] = 4.2, P = 0.0142\* | lettuce_quadratic: t = -2.96, df = 18, P = 0.00833\*\*; Est. \[95% CL\] = -1.05 \[-1.79 to -0.305\] \| radish_quadratic: t = 2.39, df = 18, P = 0.0279\*; Est. \[95% CL\] = 0.845 \[0.103 to 1.59\] \| pea_quadratic: t = -2.09, df = 18, P = 0.051.; Est. \[95% CL\] = -0.739 \[-1.48 to 0.00366\] |
+| per_plant_weight | BS | F \[2, 17\] = 22, P \< 0.001 | F \[2, 17\] = 4.69, P = 0.0239\* | F \[4, 17\] = 2.77, P = 0.0608. | lettuce_linear: t = 3.18, df = 17, P = 0.00549**; Est. \[95% CL\] = 0.928 \[0.312 to 1.54\] \| pea_quadratic: t = -3.18, df = 17, P = 0.00547**; Est. \[95% CL\] = -1.67 \[-2.78 to -0.564\] |
+| shoot_moisture | RW | F \[2, 18\] = 34.2, P \< 0.001 | F \[2, 18\] = 0.0038, p \> 0.1 | F \[4, 18\] = 4.22, P = 0.0139\* | radish_quadratic: t = -2.96, df = 18, P = 0.00831\*\*; Est. \[95% CL\] = -0.819 \[-1.4 to -0.238\] \| pea_quadratic: t = 2.64, df = 18, P = 0.0168\*; Est. \[95% CL\] = 0.728 \[0.148 to 1.31\] |
+| shoot_moisture | BS | F \[2, 17\] = 67.4, P \< 0.001 | F \[2, 17\] = 1.94, p \> 0.1 | F \[4, 17\] = 0.406, p \> 0.1 | NA |
+| shoot_root_ratio | RW | F \[2, 18\] = 32.3, P \< 0.001 | F \[2, 18\] = 0.642, p \> 0.1 | F \[4, 18\] = 0.943, p \> 0.1 | NA |
+| shoot_root_ratio | BS | F \[2, 17\] = 18.8, P \< 0.001 | F \[2, 17\] = 0.793, p \> 0.1 | F \[4, 17\] = 0.755, p \> 0.1 | NA |
+| germination_perc | RW | F \[2, 18\] = 2.58, p \> 0.1 | F \[2, 18\] = 5.23, P = 0.0162\* | F \[4, 18\] = 0.316, p \> 0.1 | pea_quadratic: t = 2.78, df = 18, P = 0.0124\*; Est. \[95% CL\] = 0.707 \[0.172 to 1.24\] \| all_quadratic: t = 3.22, df = 18, P = 0.00471\*\*; Est. \[95% CL\] = 0.474 \[0.165 to 0.783\] |
+| germination_perc | BS | F \[2, 18\] = 38.1, P \< 0.001 | F \[2, 18\] = 1.98, p \> 0.1 | F \[4, 18\] = 4.3, P = 0.0129\* | pea_linear: t = -4.25, df = 18, P \< 0.001; Est. \[95% CL\] = -2 \[-2.99 to -1.01\] \| all_linear: t = -1.99, df = 18, P = 0.0625.; Est. \[95% CL\] = -0.539 \[-1.11 to 0.0312\] |
+| survival_perc.corr | RW | F \[2, 18\] = 8.2, P = 0.00294\*\* | F \[2, 18\] = 3.89, P = 0.0393\* | F \[4, 18\] = 0.228, p \> 0.1 | pea_quadratic: t = 2.37, df = 18, P = 0.0294*; Est. \[95% CL\] = 0.756 \[0.0848 to 1.43\] \| all_quadratic: t = 2.79, df = 18, P = 0.0121*; Est. \[95% CL\] = 0.514 \[0.127 to 0.902\] |
+| survival_perc.corr | BS | F \[2, 18\] = 60.9, P \< 0.001 | F \[2, 18\] = 3.36, P = 0.0576. | F \[4, 18\] = 3.08, P = 0.0425\* | pea_linear: t = -4.23, df = 18, P \< 0.001; Est. \[95% CL\] = -1.81 \[-2.7 to -0.908\] \| all_linear: t = -2.56, df = 18, P = 0.0197\*; Est. \[95% CL\] = -0.632 \[-1.15 to -0.113\] |
 | dry_pod_weight.corr | RW | N/A (Pea only) | F \[2, 6\] = 1.26, p \> 0.1 | N/A (Pea only) | NA |
 | dry_pod_weight.corr | BS | N/A (Pea only) | F \[2, 4\] = 0.0228, p \> 0.1 | N/A (Pea only) | NA |
 | per_pod_weight | RW | N/A (Pea only) | F \[2, 6\] = 0.7, p \> 0.1 | N/A (Pea only) | NA |
 | per_pod_weight | BS | N/A (Pea only) | F \[2, 4\] = 2.16, p \> 0.1 | N/A (Pea only) | NA |
-| pods | RW | N/A (Pea only) | X2 = 6.31, df = 2, p = 0.0426\* | N/A (Pea only) | pea_quadratic: z = 2.06, p = 0.0391\*; Est. \[95% CL\] = 0.946 \[0.0474 to 1.85\] |
-| pods | BS | N/A (Pea only) | X2 = 14.9, df = 2, p \< 0.001 | N/A (Pea only) | pea_linear: z = -3.01, p = 0.00262\*\*; Est. \[95% CL\] = -1.83 \[-3.02 to -0.637\] |
+| pods | RW | N/A (Pea only) | X2 = 6.31, df = 2, P = 0.0426\* | N/A (Pea only) | pea_quadratic: z = 2.06, P = 0.0391\*; Est. \[95% CL\] = 0.946 \[0.0474 to 1.85\] |
+| pods | BS | N/A (Pea only) | X2 = 14.9, df = 2, P \< 0.001 | N/A (Pea only) | pea_linear: z = -3.01, P = 0.00262\*\*; Est. \[95% CL\] = -1.83 \[-3.02 to -0.637\] |
 | flowers | RW | N/A (Pea only) | X2 = 0.0496, df = 2, p \> 0.1 | N/A (Pea only) | NA |
 | flowers | BS | N/A (Pea only) | X2 = 1.3, df = 2, p \> 0.1 | N/A (Pea only) | NA |
+
+ANOVA (T3SS) for contaminant and species impacts on performance
 
 ``` r
 ### emmeans (back-transformed manually)
@@ -1748,7 +1792,7 @@ write.csv(emm, file = paste0(output_dir, "emm2-species.vs.contam.csv"),
           row.names = FALSE)
 ```
 
-#### Models 3 & 4: infection rate and survival
+#### 4) Models: infection rate and survival
 
 - M3: Is infection rate impacted by contaminant level?
 - M4: Is survival rate impacted by infection rate?
@@ -1792,10 +1836,10 @@ aov$trait <- "infection_rate"
 aov$amend <- "BS"
 ### format
 aov$pval <- signif(aov$`Pr(>F)`, 3)
-aov$sig <- ifelse(aov$pval< 0.001, ", p < 0.001",
-            ifelse(aov$pval < 0.01, paste0(", p = ", aov$pval, "**"),
-            ifelse(aov$pval < 0.05, paste0(", p = ", aov$pval, "*"),
-            ifelse(aov$pval < 0.1, paste0(", p = ", aov$pval, "."),
+aov$sig <- ifelse(aov$pval< 0.001, ", P < 0.001",
+            ifelse(aov$pval < 0.01, paste0(", P = ", aov$pval, "**"),
+            ifelse(aov$pval < 0.05, paste0(", P = ", aov$pval, "*"),
+            ifelse(aov$pval < 0.1, paste0(", P = ", aov$pval, "."),
                                ", p > 0.1"))))
 aov$stat <- signif(aov$`F value`, 3)
 
@@ -1825,10 +1869,10 @@ cont$amend <- "BS"
 ## round pval
 cont$pval <- signif(cont$p.value, 3)
 ### format
-cont$sig <- ifelse(cont$p.value < 0.001, ", p < 0.001",
-            ifelse(cont$p.value < 0.01, paste0(", p = ", cont$pval, "**"),
-            ifelse(cont$p.value < 0.05, paste0(", p = ", cont$pval, "*"),
-            ifelse(cont$p.value < 0.1, paste0(", p = ", cont$pval, "."),
+cont$sig <- ifelse(cont$p.value < 0.001, ", P < 0.001",
+            ifelse(cont$p.value < 0.01, paste0(", P = ", cont$pval, "**"),
+            ifelse(cont$p.value < 0.05, paste0(", P = ", cont$pval, "*"),
+            ifelse(cont$p.value < 0.1, paste0(", P = ", cont$pval, "."),
                                ", p > 0.1"))))
 ## test stats
 cont$stat <- signif(cont$t.ratio, 3)
@@ -1844,7 +1888,7 @@ cont$Est_CL <- paste0(cont$Est_r, " [",
                         cont$LCL," to ",
                         cont$UCL,"]")
 ## save relevant output for table
-cont.s <- cont %>%
+cont.f <- cont %>%
   filter(p.value < 0.1 &
            contrast == "linear") %>%
   mutate(
@@ -1864,7 +1908,7 @@ cont.s <- cont %>%
 
 ``` r
 ## add to anova
-aov.f <- left_join(aov.f, cont.s, by = c("trait","Amendment"))
+aov.f <- left_join(aov.f, cont.f, by = c("trait","Amendment"))
 ## save
 write.csv(aov.f, file = paste0(output_dir, "m3-infect.vs.contam.csv"), 
           row.names = FALSE)
@@ -1873,7 +1917,7 @@ kable(aov.f)
 
 | trait | Amendment | Spiking level (SL) | sig_contrasts |
 |:---|:---|:---|:---|
-| infection_rate | BS | F \[2, 6\] = 4.13, p = 0.0744. | linear: t = 2.67, df = 6, p = 0.0368\*; Est. \[95% CL\] = 2.3 \[0.195 to 4.4\] |
+| infection_rate | BS | F \[2, 6\] = 4.13, P = 0.0744. | linear: t = 2.67, df = 6, P = 0.0368\*; Est. \[95% CL\] = 2.3 \[0.195 to 4.4\] |
 
 ``` r
 ## infection rate and survival
@@ -1902,10 +1946,10 @@ aov$trait <- "survival_rate"
 aov$amend <- "BS"
 ### format
 aov$pval <- signif(aov$`Pr(>F)`, 3)
-aov$sig <- ifelse(aov$pval< 0.001, ", p < 0.001",
-            ifelse(aov$pval < 0.01, paste0(", p = ", aov$pval, "**"),
-            ifelse(aov$pval < 0.05, paste0(", p = ", aov$pval, "*"),
-            ifelse(aov$pval < 0.1, paste0(", p = ", aov$pval, "."),
+aov$sig <- ifelse(aov$pval< 0.001, ", P < 0.001",
+            ifelse(aov$pval < 0.01, paste0(", P = ", aov$pval, "**"),
+            ifelse(aov$pval < 0.05, paste0(", P = ", aov$pval, "*"),
+            ifelse(aov$pval < 0.1, paste0(", P = ", aov$pval, "."),
                                ", p > 0.1"))))
 aov$stat <- signif(aov$`F value`, 3)
 
@@ -1933,7 +1977,7 @@ m4_coeff$trait <- "survival_rate"
 m4_coeff <- m4_coeff %>%
   filter(term != "(Intercept)")
 m4_coeff$`linear reg.` <- paste0("t = ",
-  signif(m4_coeff$`t value`, 3), ", p = ",
+  signif(m4_coeff$`t value`, 3), ", P = ",
   signif(m4_coeff$`Pr(>|t|)`, 3), "; Slope +/- SE = ",
   signif(m4_coeff$Estimate, 3), " +/- ",
   signif(m4_coeff$`Std. Error`, 3))
@@ -1949,18 +1993,18 @@ kable(m4_aov)
 
 | trait | Amendment | Infection (%) | linear reg. |
 |:---|:---|:---|:---|
-| survival_rate | BS | F \[1, 7\] = 26.1, p = 0.00139\*\* | t = -5.1, p = 0.00139; Slope +/- SE = -0.983 +/- 0.192 |
+| survival_rate | BS | F \[1, 7\] = 26.1, P = 0.00139\*\* | t = -5.1, P = 0.00139; Slope +/- SE = -0.983 +/- 0.192 |
 
 ### Figures (Direct)
 
-#### Fig. 1: raw data
+#### 5) Fig: raw data
 
 ``` r
 ### raw data
 load(file = "./direct_files/direct-formatted.Rda") ## loads direct
 
 ## source function
-source("./Source_code/plot-direct_raw_data.func.R")
+source("./Source_code/4_direct-plot_raw_data.func.R")
 
 ## plots (traits at harvest)
 
@@ -2328,7 +2372,7 @@ fig_all <- plot_grid(
           rel_widths = c(1, 1),
           align = "hv",
           axis = "tblr",
-          labels = NULL)
+          labels = c("A", "B"))
 fig_all
 ```
 
@@ -2370,7 +2414,7 @@ ggsave("./direct_files/figs/Fig1-direct.png",
        units = "in")
 ```
 
-#### Post-hoc tests (supplementary figs)
+#### 6) Post-hoc tests (supplementary figs)
 
 ``` r
 ## figures (contrasts)
@@ -2389,8 +2433,8 @@ sig.traits <- c("dry_total_weight",
                 "per_plant_weight",
                 "shoot_root_ratio",
                 "shoot_moisture",
-                "survival_perc.corr"
-                #"germination_perc"
+                #"survival_perc.corr"
+                "germination_perc"
                 )
 
 ### filter dataset to sig traits
@@ -2404,8 +2448,8 @@ cont.f$trait <- factor(cont.f$trait,
                 "per_plant_weight",
                 "shoot_root_ratio",
                 "shoot_moisture",
-                "survival_perc.corr"
-                #"germination_perc"
+                #"survival_perc.corr"
+                "germination_perc"
                 ))
 
 ### rename traits
@@ -2427,8 +2471,13 @@ species_names <- c(
   radish = 'Radish'
 )
 
+## drop "." for species
+cont.fd <- cont.f %>%
+  filter(species %in% c("lettuce", "pea", "radish")) %>%
+  droplevels(.)
+
 ##### Contrasts (amendment type) #####
-M1_plot <- ggplot(data = cont.f,
+M1_plot <- ggplot(data = cont.fd,
    aes(x = amend, 
        y = log2(ratio), 
        colour = amend)) +
@@ -2439,7 +2488,7 @@ M1_plot <- ggplot(data = cont.f,
              linetype = 2) +
   ### add in significance (0.05 <= p < 0.1) 
   geom_text(
-    data = cont.f %>% filter(pval >= 0.05 & pval < 0.1),
+    data = cont.fd %>% filter(pval >= 0.05 & pval < 0.1),
     aes(x = amend, y = log2FC),
     label = "+",
     size = 6,
@@ -2448,7 +2497,7 @@ M1_plot <- ggplot(data = cont.f,
   ) +
   ### add in significance (p < 0.05) 
   geom_text(
-    data = cont.f %>% filter(pval < 0.05),
+    data = cont.fd %>% filter(pval < 0.05),
     aes(x = amend, y = log2FC),
     label = "*",
     size = 6,
@@ -2538,8 +2587,8 @@ emms.f$trait <- factor(emms.f$trait,
                 "per_plant_weight",
                 "shoot_root_ratio",
                 "shoot_moisture",
-                "survival_perc.corr"
-         #"germination_perc"
+                #"survival_perc.corr"
+         "germination_perc"
          ))
 
 ##### Contrasts (contamination level) #####
@@ -2547,76 +2596,84 @@ M2_plot <- ggplot(data = emms.f,
    aes(x = factor(spikeFac), 
        y = emmean, 
        colour = amend)) +
+  
   geom_line(aes(group = amend),
             position = position_dodge(0.2)) +
-  geom_pointrange(data = emms.f %>%
-                    filter(trait != "pods"),
-                           aes(ymin = lower.CL,
-                      ymax = upper.CL),
+  
+  geom_pointrange(data = emms.f %>% filter(trait != "pods"),
+                  aes(ymin = lower.CL, ymax = upper.CL),
                   position = position_dodge(0.2)) +
-  geom_pointrange(data = emms.f %>%
-                    filter(trait == "pods"),
-                           aes(ymin = asymp.LCL,
-                      ymax = asymp.UCL),
+  
+  geom_pointrange(data = emms.f %>% filter(trait == "pods"),
+                  aes(ymin = asymp.LCL, ymax = asymp.UCL),
                   position = position_dodge(0.2)) +
-  ### add in significance (0.05 <= p < 0.1) 
+  
+  ### linear: marginal significance
   geom_text(
-    data = emms.f %>% filter(spikeFac == 2 &
-                               pval_linear >= 0.05 & pval_linear < 0.1),
+    data = emms.f %>%
+      filter(spikeFac == 2 & pval_linear >= 0.05 & pval_linear < 0.1),
     aes(x = factor(spikeFac), y = emmean),
-    label = "+",
-    size = 6,
+    label = "+", size = 6,
     position = position_dodge(0.5),
     vjust = -0.5
   ) +
-  ### add in significance (p < 0.05) 
+  
+  ### linear: significant
   geom_text(
-    data = emms.f %>% filter(spikeFac == 2 &
-                               pval_linear < 0.05),
+    data = emms.f %>%
+      filter(spikeFac == 2 & pval_linear < 0.05),
     aes(x = factor(spikeFac), y = emmean),
-    label = "*",
-    size = 6,
+    label = "*", size = 6,
     position = position_dodge(0.5),
     vjust = -0.5
   ) +
-  ### add in significance (p < 0.05) - quadratic
+  
+  ### quadratic: significant
   geom_text(
-    data = emms.f %>% filter(spikeFac == 0 &
-                               pval_quadratic < 0.05),
+    data = emms.f %>%
+      filter(spikeFac == 0 & pval_quadratic < 0.05),
     aes(x = factor(spikeFac), y = emmean),
-    label = "*",
-    size = 6,
+    label = "*", size = 6,
     position = position_dodge(0.5),
     vjust = -0.5
   ) +
-  ### add in significance (p ms) - quadratic
+  
+  ### quadratic: marginal significance
   geom_text(
-    data = emms.f %>% filter(spikeFac == 0 &
-                               pval_quadratic >= 0.05 & pval_quadratic < 0.1),
+    data = emms.f %>%
+      filter(spikeFac == 0 & pval_quadratic >= 0.05 & pval_quadratic < 0.1),
     aes(x = factor(spikeFac), y = emmean),
-    label = "+",
-    size = 6,
+    label = "+", size = 6,
     position = position_dodge(0.5),
     vjust = -0.5
   ) +
-   scale_colour_manual(values = c(
-                                  "blue",
-                                 "#B06500")) +
-  facet_grid(trait~species, scales = "fixed",
+
+  scale_colour_manual(values = c("blue", "#B06500")) +
+
+  facet_grid(trait ~ species, scales = "free",
              labeller = labeller(trait = trait_names,
                                  species = species_names)) +
-  labs(y = expression("EM mean (95% CL)"), 
+
+  labs(y = expression("Estimated Mean (log scale)"), 
        x = "Contaminant level") +
+  
   guides(colour = "none") +
+
+  ### key parts to ensure annotation visibility
+  scale_y_continuous(expand = c(0.05, 0.25)) + 
+  coord_cartesian(clip = "off") +
+  theme(plot.margin = margin(t = 12, r = 8, b = 8, l = 8)) +
+
   theme_bw() +
   theme(
     axis.text = element_text(size = 12),
-   axis.title.x = element_text(size =  14),
-    axis.title.y = element_text(size =  14),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
     strip.text = element_text(size = 12, face = "bold"),
     panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
+    panel.grid.minor = element_blank()
   )
+
 M2_plot
 ```
 
@@ -2636,6 +2693,6 @@ plots
 ``` r
 ## save
 ggsave("./direct_files/figs/plots-PHT.png", 
-       width = 10, height = 6, 
+       width = 10, height = 7, 
        units = "in")
 ```

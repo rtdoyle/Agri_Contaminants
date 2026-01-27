@@ -1,2 +1,2 @@
 "trait","Amendment","Spiking level (SL)","sig_contrasts"
-"infection_rate","BS","F [2, 6] = 4.13, p = 0.0744.","linear: t = 2.67, df = 6, p = 0.0368*; Est. [95% CL] = 2.3 [0.195 to 4.4]"
+"infection_rate","BS","F [2, 6] = 4.13, P = 0.0744.","linear: t = 2.67, df = 6, P = 0.0368*; Est. [95% CL] = 2.3 [0.195 to 4.4]"

@@ -1,2 +1,2 @@
 "","trait","Amendment","Infection (%)","linear reg."
-"1","survival_rate","BS","F [1, 7] = 26.1, p = 0.00139**","t = -5.1, p = 0.00139; Slope +/- SE = -0.983 +/- 0.192"
+"1","survival_rate","BS","F [1, 7] = 26.1, P = 0.00139**","t = -5.1, P = 0.00139; Slope +/- SE = -0.983 +/- 0.192"
