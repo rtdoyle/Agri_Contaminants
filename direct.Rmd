@@ -539,7 +539,7 @@ aov$sig <- ifelse(aov$pval< 0.001, ", P < 0.001",
             ifelse(aov$pval < 0.01, paste0(", P = ", aov$pval, "**"),
             ifelse(aov$pval < 0.05, paste0(", P = ", aov$pval, "*"),
             ifelse(aov$pval < 0.1, paste0(", P = ", aov$pval, "."),
-                               ", p > 0.1"))))
+                               ", P > 0.1"))))
 aov$stat <- ifelse(is.na(aov$`F value`) == FALSE,
                         signif(aov$`F value`, 3),
                         signif(aov$`LR Chisq`, 3))
@@ -613,7 +613,7 @@ cont$sig <- ifelse(cont$p.value < 0.001, ", P < 0.001",
             ifelse(cont$p.value < 0.01, paste0(", P = ", cont$pval, "**"),
             ifelse(cont$p.value < 0.05, paste0(", P = ", cont$pval, "*"),
             ifelse(cont$p.value < 0.1, paste0(", P = ", cont$pval, "."),
-                               ", p > 0.1"))))
+                               ", P > 0.1"))))
 ## test stats
 cont$stat <- ifelse(is.na(cont$t.ratio) == FALSE,
                         signif(cont$t.ratio, 3),

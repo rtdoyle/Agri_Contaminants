@@ -2,7 +2,7 @@ Microbially-mediated (i.e., indirect) impacts of amendments and
 contaminants
 ================
 RTD, II
-2025-11-28
+2026-01-31
 
 ## Soil slurry experiment
 
@@ -200,7 +200,7 @@ trait.list <- c(## non-destructive traits prior to harvest
                 "shoot_moisture")
 
 ## source function
-source("./Source_code/mod-indirect_emmeans.func.R")
+source("./Source_code/14_indirect-mod_emmeans.func.R")
 
 # Create output directory if it doesn't exist
 ## set output directory
@@ -983,10 +983,10 @@ aov$pval <- ifelse(is.na(aov$`LR Chisq`) == FALSE,
                    signif(aov$`Pr(>Chisq)`, 3),
                    signif(aov$`Pr(>F)`, 3))
 aov$sig <- ifelse(aov$pval< 0.001, ", p < 0.001",
-            ifelse(aov$pval < 0.01, paste0(", p = ", aov$pval, "**"),
-            ifelse(aov$pval < 0.05, paste0(", p = ", aov$pval, "*"),
-            ifelse(aov$pval < 0.1, paste0(", p = ", aov$pval, "."),
-                               ", p > 0.1"))))
+            ifelse(aov$pval < 0.01, paste0(", P = ", aov$pval, "**"),
+            ifelse(aov$pval < 0.05, paste0(", P = ", aov$pval, "*"),
+            ifelse(aov$pval < 0.1, paste0(", P = ", aov$pval, "."),
+                               ", P > 0.1"))))
 aov$stat <- ifelse(is.na(aov$`LR Chisq`) == FALSE, signif(aov$`LR Chisq`, 3),
                    signif(aov$`F value`, 3))
 
@@ -1019,10 +1019,10 @@ cont <- lapply(mod.out, `[[`, 3) %>%
 cont$pval <- signif(cont$p.value, 3)
 ### format
 cont$sig <- ifelse(cont$p.value < 0.001, ", p < 0.001",
-            ifelse(cont$p.value < 0.01, paste0(", p = ", cont$pval, "**"),
-            ifelse(cont$p.value < 0.05, paste0(", p = ", cont$pval, "*"),
-            ifelse(cont$p.value < 0.1, paste0(", p = ", cont$pval, "."),
-                               ", p > 0.1"))))
+            ifelse(cont$p.value < 0.01, paste0(", P = ", cont$pval, "**"),
+            ifelse(cont$p.value < 0.05, paste0(", P = ", cont$pval, "*"),
+            ifelse(cont$p.value < 0.1, paste0(", P = ", cont$pval, "."),
+                               ", P > 0.1"))))
 ## test stats
 cont$stat <- ifelse(is.na(cont$z.ratio) == FALSE, 
                     paste0("z = ", signif(cont$z.ratio, 3)),
@@ -1032,8 +1032,12 @@ cont$stat <- ifelse(is.na(cont$z.ratio) == FALSE,
 
 ## estimates
 cont$log2FC <- log2(cont$ratio)
-cont$LCL <- signif(log2(cont$lower.CL), 3)
-cont$UCL <- signif(log2(cont$upper.CL), 3)
+cont$LCL <- ifelse(cont$trait == "leaf_num",
+                   signif(log2(cont$asymp.LCL), 3),
+                   signif(log2(cont$lower.CL), 3))
+cont$UCL <- ifelse(cont$trait == "leaf_num",
+                   signif(log2(cont$asymp.UCL), 3),
+                   signif(log2(cont$upper.CL), 3))
 cont$log2FC_CL <- paste0(signif(cont$log2FC, 3), " [",
                         cont$LCL," to ",
                         cont$UCL,"]")
@@ -1064,23 +1068,23 @@ kable(aov.f)
 
 | trait | Soil slurry | sig_contrasts |
 |:---|:---|:---|
-| plant_height1 | F \[21, 48\] = 2.1, p = 0.0169\* | (1US-RW-P) / Saline Control: t = -3.85, df = , 48; log2FC \[95% CL\] = -0.893 \[-1.61 to -0.177\] |
-| plant_height2 | F \[21, 48\] = 1.94, p = 0.0294\* | (11SL1-RW-P) / Saline Control: t = -3.23, df = , 48; log2FC \[95% CL\] = -0.745 \[-1.46 to -0.0347\] \| (1US-RW-P) / Saline Control: t = -3.48, df = , 48; log2FC \[95% CL\] = -0.802 \[-1.51 to -0.0914\] |
-| plant_height3 | F \[21, 48\] = 1.82, p = 0.0439\* | (11SL1-RW-P) / Saline Control: t = -3, df = , 48; log2FC \[95% CL\] = -1.07 \[-2.18 to 0.0293\] \| (47SL2-BS-P) / Saline Control: t = -3.05, df = , 48; log2FC \[95% CL\] = -1.09 \[-2.19 to 0.013\] |
-| chlorophyll_content1_mean | F \[19, 23\] = 0.918, p \> 0.1 | NA |
-| chlorophyll_content2_mean | F \[21, 43\] = 1.83, p = 0.0458\* | (19SL2-RW-P) / Saline Control: t = 3.45, df = , 43; log2FC \[95% CL\] = 0.0736 \[0.0075 to 0.14\] |
-| chlorophyll_content3_mean | F \[20, 42\] = 0.511, p \> 0.1 | NA |
-| leaf_num | Chisq \[21, NA\] = 4.7, p \> 0.1 | NA |
-| plant_height4 | F \[21, 48\] = 2.25, p = 0.0102\* | (11SL1-RW-P) / Saline Control: t = -2.97, df = , 48; log2FC \[95% CL\] = -0.878 \[-1.79 to 0.0351\] \| (47SL2-BS-P) / Saline Control: t = -3.84, df = , 48; log2FC \[95% CL\] = -1.14 \[-2.05 to -0.224\] |
-| chlorophyll_content4_mean | F \[21, 43\] = 1.36, p \> 0.1 | (37SL1-BS-P) / Saline Control: t = -3.51, df = , 43; log2FC \[95% CL\] = -0.185 \[-0.349 to -0.0215\] |
-| leaf_num2 | Chisq \[21, NA\] = 10.6, p \> 0.1 | NA |
-| wet_shoot_weight | F \[21, 48\] = 1.49, p \> 0.1 | (47SL2-BS-P) / Saline Control: t = -2.91, df = , 48; log2FC \[95% CL\] = -1.29 \[-2.66 to 0.0754\] |
-| dry_shoot_weight | F \[21, 48\] = 1.55, p \> 0.1 | (11SL1-RW-P) / Saline Control: t = -2.88, df = , 48; log2FC \[95% CL\] = -1.33 \[-2.76 to 0.0943\] \| (47SL2-BS-P) / Saline Control: t = -2.97, df = , 48; log2FC \[95% CL\] = -1.37 \[-2.8 to 0.0528\] |
-| wet_root_weight | F \[21, 48\] = 1.23, p \> 0.1 | NA |
-| dry_root_weight | F \[21, 48\] = 1.25, p \> 0.1 | (11SL1-RW-P) / Saline Control: t = -2.83, df = , 48; log2FC \[95% CL\] = -1.34 \[-2.79 to 0.117\] |
-| dry_total_weight | F \[21, 48\] = 1.53, p \> 0.1 | (11SL1-RW-P) / Saline Control: t = -3.35, df = , 48; log2FC \[95% CL\] = -1.34 \[-2.57 to -0.105\] \| (47SL2-BS-P) / Saline Control: t = -3.11, df = , 48; log2FC \[95% CL\] = -1.24 \[-2.48 to -0.0108\] |
-| shoot_root_ratio | F \[21, 48\] = 1.69, p = 0.0667. | NA |
-| shoot_moisture | F \[21, 48\] = 2.02, p = 0.0224\* | (39SL1-BS-P) / Saline Control: t = 4.41, df = , 48; log2FC \[95% CL\] = 0.75 \[0.226 to 1.27\] |
+| plant_height1 | F \[21, 48\] = 2.1, P = 0.0169\* | (1US-RW-P) / Saline Control: t = -3.85, df = , 48; log2FC \[95% CL\] = -0.893 \[-1.61 to -0.177\] |
+| plant_height2 | F \[21, 48\] = 1.94, P = 0.0294\* | (11SL1-RW-P) / Saline Control: t = -3.23, df = , 48; log2FC \[95% CL\] = -0.745 \[-1.46 to -0.0347\] \| (1US-RW-P) / Saline Control: t = -3.48, df = , 48; log2FC \[95% CL\] = -0.802 \[-1.51 to -0.0914\] |
+| plant_height3 | F \[21, 48\] = 1.82, P = 0.0439\* | (11SL1-RW-P) / Saline Control: t = -3, df = , 48; log2FC \[95% CL\] = -1.07 \[-2.18 to 0.0293\] \| (47SL2-BS-P) / Saline Control: t = -3.05, df = , 48; log2FC \[95% CL\] = -1.09 \[-2.19 to 0.013\] |
+| chlorophyll_content1_mean | F \[19, 23\] = 0.918, P \> 0.1 | NA |
+| chlorophyll_content2_mean | F \[21, 43\] = 1.83, P = 0.0458\* | (19SL2-RW-P) / Saline Control: t = 3.45, df = , 43; log2FC \[95% CL\] = 0.0736 \[0.0075 to 0.14\] |
+| chlorophyll_content3_mean | F \[20, 42\] = 0.511, P \> 0.1 | NA |
+| leaf_num | Chisq \[21, NA\] = 4.7, P \> 0.1 | NA |
+| plant_height4 | F \[21, 48\] = 2.25, P = 0.0102\* | (11SL1-RW-P) / Saline Control: t = -2.97, df = , 48; log2FC \[95% CL\] = -0.878 \[-1.79 to 0.0351\] \| (47SL2-BS-P) / Saline Control: t = -3.84, df = , 48; log2FC \[95% CL\] = -1.14 \[-2.05 to -0.224\] |
+| chlorophyll_content4_mean | F \[21, 43\] = 1.36, P \> 0.1 | (37SL1-BS-P) / Saline Control: t = -3.51, df = , 43; log2FC \[95% CL\] = -0.185 \[-0.349 to -0.0215\] |
+| leaf_num2 | Chisq \[21, NA\] = 10.6, P \> 0.1 | NA |
+| wet_shoot_weight | F \[21, 48\] = 1.49, P \> 0.1 | (47SL2-BS-P) / Saline Control: t = -2.91, df = , 48; log2FC \[95% CL\] = -1.29 \[-2.66 to 0.0754\] |
+| dry_shoot_weight | F \[21, 48\] = 1.55, P \> 0.1 | (11SL1-RW-P) / Saline Control: t = -2.88, df = , 48; log2FC \[95% CL\] = -1.33 \[-2.76 to 0.0943\] \| (47SL2-BS-P) / Saline Control: t = -2.97, df = , 48; log2FC \[95% CL\] = -1.37 \[-2.8 to 0.0528\] |
+| wet_root_weight | F \[21, 48\] = 1.23, P \> 0.1 | NA |
+| dry_root_weight | F \[21, 48\] = 1.25, P \> 0.1 | (11SL1-RW-P) / Saline Control: t = -2.83, df = , 48; log2FC \[95% CL\] = -1.34 \[-2.79 to 0.117\] |
+| dry_total_weight | F \[21, 48\] = 1.53, P \> 0.1 | (11SL1-RW-P) / Saline Control: t = -3.35, df = , 48; log2FC \[95% CL\] = -1.34 \[-2.57 to -0.105\] \| (47SL2-BS-P) / Saline Control: t = -3.11, df = , 48; log2FC \[95% CL\] = -1.24 \[-2.48 to -0.0108\] |
+| shoot_root_ratio | F \[21, 48\] = 1.69, P = 0.0667. | NA |
+| shoot_moisture | F \[21, 48\] = 2.02, P = 0.0224\* | (39SL1-BS-P) / Saline Control: t = 4.41, df = , 48; log2FC \[95% CL\] = 0.75 \[0.226 to 1.27\] |
 
 ``` r
 ### emmeans
@@ -1106,11 +1110,67 @@ emm.s <- emm %>% ## get rid of extra cols
          -lower.CL, -upper.CL, 
          -asymp.LCL, -asymp.UCL,
          -t.ratio, -z.ratio)
-
-
+## save
 save(emm.s, file = paste0(output_dir, "emm1-slurry.means.Rda"))
 write.csv(emm.s, paste0(output_dir, "emm1-slurry.means.csv"), 
           row.names = FALSE)
+
+## plot contrasts
+
+cont <- cont %>%
+  mutate(sampleID = str_extract(cont$contrast, "(?<=\\().*?(?=\\))"),
+         sampleID.c = ifelse(is.na(sampleID) == TRUE, "control", 
+                             paste0(sampleID)),
+         treat = str_remove(sampleID.c, "^\\d{1,2}"))
+
+cont$treat <- factor(cont$treat, levels = c(
+  "control",
+  "US-RW-P", "SL1-RW-P", "SL2-RW-P",   
+  "US-BS-P",  "SL1-BS-P", "SL2-BS-P")
+  )
+
+plot <- ggplot(cont %>%
+                 filter(trait %in% c("plant_height3",
+                                     "chlorophyll_content4_mean",
+                                     "leaf_num",
+                                     "dry_total_weight",
+                                     "shoot_root_ratio",
+                                     "shoot_moisture")), 
+               aes(x = treat, y = log2FC)) +
+  geom_pointrange(aes(colour = treat,
+                      ymin = LCL,
+                      ymax = UCL),
+                  position = position_dodge2(0.5)) +
+  geom_hline(aes(yintercept = 0), linetype = 2) +
+  scale_colour_manual(values = c(  "gray",
+                                  "lightblue",
+                                  "cornflowerblue",
+                                  "blue",
+                                  "#EABD8C",
+                                  "#FFAD00",
+                                  "#B06500")) +
+  facet_wrap(~trait, scales = "free") +
+  labs(colour = "Prior exposure treatment",
+       x = NULL) +
+  theme_bw() +
+  theme(axis.title.x = element_blank(),
+          axis.text.x = element_blank(),
+          axis.title.y = element_text(size = 16),
+          axis.text.y = element_text(size = 14),
+          strip.text = element_text(size = 14, face = "bold"),
+          legend.position = "bottom",
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank())
+plot
+```
+
+![](indirect_files/figure-gfm/m1-slurry.means-1.png)<!-- -->
+
+``` r
+## save plot
+ggsave("./indirect_files/figs/contrasts-slurries.png", 
+       width = 10, height = 4, 
+       units = "in")
 ```
 
 #### M2: Examine non-destructive traits over time
@@ -1314,7 +1374,7 @@ dir.create(file.path(output_dir, "resfits_plots/m2-treat.vs.time/"),
 trait.list <- unique(emm.f$trait)
 
 ## 1)  species x amendment (for each timepoint sep)
-source("./Source_code/mod-indirect_treat.v.time.func.R")
+source("./Source_code/15_indirect-mod_treat.vs.time.func.R")
 
 ## run function
 mod.out <- sapply(trait.list, 
@@ -1459,10 +1519,10 @@ aov <- lapply(mod.out, `[[`, 1) %>%
 ### format
 aov$pval <- signif(aov$`Pr(>F)`, 3)
 aov$sig <- ifelse(aov$pval< 0.001, ", p < 0.001",
-            ifelse(aov$pval < 0.01, paste0(", p = ", aov$pval, "**"),
-            ifelse(aov$pval < 0.05, paste0(", p = ", aov$pval, "*"),
-            ifelse(aov$pval < 0.1, paste0(", p = ", aov$pval, "."),
-                               ", p > 0.1"))))
+            ifelse(aov$pval < 0.01, paste0(", P = ", aov$pval, "**"),
+            ifelse(aov$pval < 0.05, paste0(", P = ", aov$pval, "*"),
+            ifelse(aov$pval < 0.1, paste0(", P = ", aov$pval, "."),
+                               ", P > 0.1"))))
 aov$stat <- signif(aov$`F value`, 3)
 
 ## pivot wider for each model term
@@ -1497,11 +1557,11 @@ cont <- lapply(mod.out, `[[`, 3) %>%
 ## round pval
 cont$pval <- signif(cont$p.value, 3)
 ### format
-cont$sig <- ifelse(cont$p.value < 0.001, ", p < 0.001",
-            ifelse(cont$p.value < 0.01, paste0(", p = ", cont$pval, "**"),
-            ifelse(cont$p.value < 0.05, paste0(", p = ", cont$pval, "*"),
-            ifelse(cont$p.value < 0.1, paste0(", p = ", cont$pval, "."),
-                               ", p > 0.1"))))
+cont$sig <- ifelse(cont$p.value < 0.001, ", P < 0.001",
+            ifelse(cont$p.value < 0.01, paste0(", P = ", cont$pval, "**"),
+            ifelse(cont$p.value < 0.05, paste0(", P = ", cont$pval, "*"),
+            ifelse(cont$p.value < 0.1, paste0(", P = ", cont$pval, "."),
+                               ", P > 0.1"))))
 ## test stats
 cont$stat <- signif(cont$t.ratio, 3)
 
@@ -1526,14 +1586,14 @@ cont.s <- cont %>%
                            stat.f, "; ", 
                            "log2FC [95% CL] = ", log2FC_CL)
     ) %>%
-  select(trait, contrast_info) %>%
+  select(trait, Week = weekFac, contrast_info) %>%
   group_by(trait) %>%
   summarize(
     sig_contrasts = paste(contrast_info, collapse = " | ")
     )
 
-## add to anova
-aov.f <- left_join(aov.f, cont.s, by = c("trait")) 
+## no sig contrasts
+
 
 ### CONTRASTS
 cont <- lapply(mod.out, `[[`, 4) %>%
@@ -1542,11 +1602,11 @@ cont <- lapply(mod.out, `[[`, 4) %>%
 ## round pval
 cont$pval <- signif(cont$p.value, 3)
 ### format
-cont$sig <- ifelse(cont$p.value < 0.001, ", p < 0.001",
-            ifelse(cont$p.value < 0.01, paste0(", p = ", cont$pval, "**"),
-            ifelse(cont$p.value < 0.05, paste0(", p = ", cont$pval, "*"),
-            ifelse(cont$p.value < 0.1, paste0(", p = ", cont$pval, "."),
-                               ", p > 0.1"))))
+cont$sig <- ifelse(cont$p.value < 0.001, ", P < 0.001",
+            ifelse(cont$p.value < 0.01, paste0(", P = ", cont$pval, "**"),
+            ifelse(cont$p.value < 0.05, paste0(", P = ", cont$pval, "*"),
+            ifelse(cont$p.value < 0.1, paste0(", P = ", cont$pval, "."),
+                               ", P > 0.1"))))
 ## test stats
 cont$stat <- signif(cont$t.ratio, 3)
 
@@ -1587,11 +1647,11 @@ write.csv(aov.f, file = paste0(output_dir, "aov2-treat.vs.time.csv"),
 kable(aov.f)
 ```
 
-| trait | Treatment | Week | Treatment x Week | sig_contrasts.x | sig_contrasts.y |
-|:---|:---|:---|:---|:---|:---|
-| plant_height | F \[6, 56\] = 1.75, p \> 0.1 | F \[3, 56\] = 27.3, p \< 0.001 | F \[18, 56\] = 0.133, p \> 0.1 | NA | control-0_linear: t = 3.55, df = 56, p \< 0.001; linear est. \[95% CL\] = 2.34 \[1.02 to 3.66\] \| RW-0_linear: t = 3.88, df = 56, p \< 0.001; linear est. \[95% CL\] = 2.55 \[1.24 to 3.87\] \| RW-1_linear: t = 3.21, df = 56, p = 0.00222**; linear est. \[95% CL\] = 2.11 \[0.793 to 3.43\] \| RW-2_linear: t = 2.69, df = 56, p = 0.0095**; linear est. \[95% CL\] = 1.77 \[0.45 to 3.09\] \| BS-0_linear: t = 3.96, df = 56, p \< 0.001; linear est. \[95% CL\] = 2.61 \[1.29 to 3.93\] \| BS-1_linear: t = 3.49, df = 56, p \< 0.001; linear est. \[95% CL\] = 2.3 \[0.977 to 3.61\] \| BS-2_linear: t = 2.56, df = 56, p = 0.0133\*; linear est. \[95% CL\] = 1.68 \[0.365 to 3\] |
-| chlorophyll_content_mean | F \[6, 53\] = 0.567, p \> 0.1 | F \[3, 53\] = 15.2, p \< 0.001 | F \[18, 53\] = 0.362, p \> 0.1 | NA | RW-0_linear: t = -3.25, df = 53, p = 0.00203**; linear est. \[95% CL\] = -0.344 \[-0.556 to -0.131\] \| RW-1_linear: t = -1.94, df = 53, p = 0.0573.; linear est. \[95% CL\] = -0.208 \[-0.423 to 0.00669\] \| RW-2_linear: t = -2.93, df = 53, p = 0.00505**; linear est. \[95% CL\] = -0.31 \[-0.522 to -0.0974\] \| BS-0_linear: t = -2.46, df = 53, p = 0.0172\*; linear est. \[95% CL\] = -0.26 \[-0.473 to -0.048\] \| BS-1_linear: t = -1.92, df = 53, p = 0.0607.; linear est. \[95% CL\] = -0.225 \[-0.46 to 0.0104\] |
-| leaf_num | F \[6, 28\] = 0.659, p \> 0.1 | F \[1, 28\] = 274, p \< 0.001 | F \[6, 28\] = 0.693, p \> 0.1 | NA | control-0_linear: t = 6.44, df = 28, p \< 0.001; linear est. \[95% CL\] = 0.785 \[0.535 to 1.04\] \| RW-0_linear: t = 6.79, df = 28, p \< 0.001; linear est. \[95% CL\] = 0.828 \[0.578 to 1.08\] \| RW-1_linear: t = 5.68, df = 28, p \< 0.001; linear est. \[95% CL\] = 0.692 \[0.442 to 0.942\] \| RW-2_linear: t = 5.64, df = 28, p \< 0.001; linear est. \[95% CL\] = 0.688 \[0.438 to 0.937\] \| BS-0_linear: t = 6.47, df = 28, p \< 0.001; linear est. \[95% CL\] = 0.789 \[0.54 to 1.04\] \| BS-1_linear: t = 7.61, df = 28, p \< 0.001; linear est. \[95% CL\] = 0.928 \[0.678 to 1.18\] \| BS-2_linear: t = 5.14, df = 28, p \< 0.001; linear est. \[95% CL\] = 0.627 \[0.377 to 0.877\] |
+| trait | Treatment | Week | Treatment x Week | sig_contrasts |
+|:---|:---|:---|:---|:---|
+| plant_height | F \[6, 56\] = 1.75, P \> 0.1 | F \[3, 56\] = 27.3, p \< 0.001 | F \[18, 56\] = 0.133, P \> 0.1 | control-0_linear: t = 3.55, df = 56, P \< 0.001; linear est. \[95% CL\] = 2.34 \[1.02 to 3.66\] \| RW-0_linear: t = 3.88, df = 56, P \< 0.001; linear est. \[95% CL\] = 2.55 \[1.24 to 3.87\] \| RW-1_linear: t = 3.21, df = 56, P = 0.00222**; linear est. \[95% CL\] = 2.11 \[0.793 to 3.43\] \| RW-2_linear: t = 2.69, df = 56, P = 0.0095**; linear est. \[95% CL\] = 1.77 \[0.45 to 3.09\] \| BS-0_linear: t = 3.96, df = 56, P \< 0.001; linear est. \[95% CL\] = 2.61 \[1.29 to 3.93\] \| BS-1_linear: t = 3.49, df = 56, P \< 0.001; linear est. \[95% CL\] = 2.3 \[0.977 to 3.61\] \| BS-2_linear: t = 2.56, df = 56, P = 0.0133\*; linear est. \[95% CL\] = 1.68 \[0.365 to 3\] |
+| chlorophyll_content_mean | F \[6, 53\] = 0.567, P \> 0.1 | F \[3, 53\] = 15.2, p \< 0.001 | F \[18, 53\] = 0.362, P \> 0.1 | RW-0_linear: t = -3.25, df = 53, P = 0.00203**; linear est. \[95% CL\] = -0.344 \[-0.556 to -0.131\] \| RW-1_linear: t = -1.94, df = 53, P = 0.0573.; linear est. \[95% CL\] = -0.208 \[-0.423 to 0.00669\] \| RW-2_linear: t = -2.93, df = 53, P = 0.00505**; linear est. \[95% CL\] = -0.31 \[-0.522 to -0.0974\] \| BS-0_linear: t = -2.46, df = 53, P = 0.0172\*; linear est. \[95% CL\] = -0.26 \[-0.473 to -0.048\] \| BS-1_linear: t = -1.92, df = 53, P = 0.0607.; linear est. \[95% CL\] = -0.225 \[-0.46 to 0.0104\] |
+| leaf_num | F \[6, 28\] = 0.659, P \> 0.1 | F \[1, 28\] = 274, p \< 0.001 | F \[6, 28\] = 0.693, P \> 0.1 | control-0_linear: t = 6.44, df = 28, P \< 0.001; linear est. \[95% CL\] = 0.785 \[0.535 to 1.04\] \| RW-0_linear: t = 6.79, df = 28, P \< 0.001; linear est. \[95% CL\] = 0.828 \[0.578 to 1.08\] \| RW-1_linear: t = 5.68, df = 28, P \< 0.001; linear est. \[95% CL\] = 0.692 \[0.442 to 0.942\] \| RW-2_linear: t = 5.64, df = 28, P \< 0.001; linear est. \[95% CL\] = 0.688 \[0.438 to 0.937\] \| BS-0_linear: t = 6.47, df = 28, P \< 0.001; linear est. \[95% CL\] = 0.789 \[0.54 to 1.04\] \| BS-1_linear: t = 7.61, df = 28, P \< 0.001; linear est. \[95% CL\] = 0.928 \[0.678 to 1.18\] \| BS-2_linear: t = 5.14, df = 28, P \< 0.001; linear est. \[95% CL\] = 0.627 \[0.377 to 0.877\] |
 
 #### M3: impact of prior amendment type on traits
 
@@ -1603,7 +1663,7 @@ load(file = "./indirect_files/models/emm1-slurry.means.Rda") ## loads emm.s
 options(contrasts=c("contr.sum","contr.poly")) 
 
 ## source function
-source("./Source_code/mod-indirect_amend.func.R")
+source("./Source_code/16_indirect-mod_amend.func.R")
 
 ## traits measured at harvest
 trait.list <- c("plant_height4",
@@ -1797,11 +1857,11 @@ aov <- lapply(mod.out, `[[`, 1) %>%
 aov$pval <- ifelse(is.na(aov$`Pr(>F)`) == FALSE,
                    signif(aov$`Pr(>F)`, 3),
                    signif(aov$`Pr(>Chisq)`, 3))
-aov$sig <- ifelse(aov$pval< 0.001, ", p < 0.001",
-            ifelse(aov$pval < 0.01, paste0(", p = ", aov$pval, "**"),
-            ifelse(aov$pval < 0.05, paste0(", p = ", aov$pval, "*"),
-            ifelse(aov$pval < 0.1, paste0(", p = ", aov$pval, "."),
-                               ", p > 0.1"))))
+aov$sig <- ifelse(aov$pval< 0.001, ", P < 0.001",
+            ifelse(aov$pval < 0.01, paste0(", P =", aov$pval, "**"),
+            ifelse(aov$pval < 0.05, paste0(", P =", aov$pval, "*"),
+            ifelse(aov$pval < 0.1, paste0(", P =", aov$pval, "."),
+                               ", P > 0.1"))))
 aov$stat <- ifelse(is.na(aov$`F value`) == FALSE,
                         signif(aov$`F value`, 3),
                         signif(aov$`LR Chisq`, 3))
@@ -1834,11 +1894,11 @@ cont <- lapply(mod.out, `[[`, 3) %>%
 ## round pval
 cont$pval <- signif(cont$p.value, 3)
 ### format
-cont$sig <- ifelse(cont$p.value < 0.001, ", p < 0.001",
-            ifelse(cont$p.value < 0.01, paste0(", p = ", cont$pval, "**"),
-            ifelse(cont$p.value < 0.05, paste0(", p = ", cont$pval, "*"),
-            ifelse(cont$p.value < 0.1, paste0(", p = ", cont$pval, "."),
-                               ", p > 0.1"))))
+cont$sig <- ifelse(cont$p.value < 0.001, ", P < 0.001",
+            ifelse(cont$p.value < 0.01, paste0(", P =", cont$pval, "**"),
+            ifelse(cont$p.value < 0.05, paste0(", P =", cont$pval, "*"),
+            ifelse(cont$p.value < 0.1, paste0(", P =", cont$pval, "."),
+                               ", P > 0.1"))))
 ## test stats
 cont$stat <- ifelse(is.na(cont$t.ratio) == FALSE,
                         signif(cont$t.ratio, 3),
@@ -1865,8 +1925,16 @@ cont$log2FC_CL <- paste0(signif(cont$log2FC, 3), " [",
 ## save as R data file
 save(cont, file = paste0(output_dir, "cont3-amend.Rdata"))
 
-## save relevant output for table
+## save as csv (Supp file)
 cont.s <- cont %>%
+  mutate(amend = ifelse(grepl("RW", contrast, fixed = FALSE) == TRUE,
+                        "RW", "BS")) %>%
+  select(trait, amend, log2FC_CL, stat.f)
+write_csv(cont.s, file = paste0(output_dir, "cont1-amend.csv"))
+
+
+## save relevant output for table
+cont.f <- cont %>%
   filter(p.value < 0.1) %>%
   mutate(
     contrast_info = paste0(contrast, ": ", 
@@ -1880,21 +1948,30 @@ cont.s <- cont %>%
     )
 
 ## add to anova
-aov.f$sig_contrasts <- cont.s$sig_contrasts[match(aov.f$trait, cont.s$trait)] 
+aov.f$sig_contrasts <- cont.f$sig_contrasts[match(aov.f$trait, cont.f$trait)] 
 ## save
 write.csv(aov.f, file = paste0(output_dir, "aov3-amend.csv"), 
           row.names = FALSE)
-kable(aov.f)
+## print nicely
+knitr::kable(
+ aov.f,
+  format = "markdown",   # ensures Markdown-friendly table
+  digits = 3,
+  align = "c",
+  caption = "ANOVA (T3SS) for prior amendment exposure on performance"
+)
 ```
 
 | trait | Amendment | sig_contrasts |
-|:---|:---|:---|
-| plant_height4 | F \[2, 6\] = 3.61, p = 0.0935. | NA |
-| chlorophyll_content4_mean | F \[2, 6\] = 0.585, p \> 0.1 | NA |
-| leaf_num2 | X2 = 0.141, df = 2, p \> 0.1 | NA |
-| dry_total_weight | F \[2, 6\] = 0.518, p \> 0.1 | NA |
-| shoot_root_ratio | F \[2, 6\] = 13.8, p = 0.00565\*\* | RW / control: t = -2.44, df = 6, p = 0.0917.; log2FC \[95% CL\] = -0.448 \[-0.981 to 0.0857\] \| BS / control: t = 2.82, df = 6, p = 0.0553.; log2FC \[95% CL\] = 0.519 \[-0.0144 to 1.05\] |
-| shoot_moisture | F \[2, 6\] = 0.0209, p \> 0.1 | NA |
+|:--:|:--:|:--:|
+| plant_height4 | F \[2, 6\] = 3.61, P =0.0935. | NA |
+| chlorophyll_content4_mean | F \[2, 6\] = 0.585, P \> 0.1 | NA |
+| leaf_num2 | X2 = 0.141, df = 2, P \> 0.1 | NA |
+| dry_total_weight | F \[2, 6\] = 0.518, P \> 0.1 | NA |
+| shoot_root_ratio | F \[2, 6\] = 13.8, P =0.00565\*\* | RW / control: t = -2.44, df = 6, P =0.0917.; log2FC \[95% CL\] = -0.448 \[-0.981 to 0.0857\] \| BS / control: t = 2.82, df = 6, P =0.0553.; log2FC \[95% CL\] = 0.519 \[-0.0144 to 1.05\] |
+| shoot_moisture | F \[2, 6\] = 0.0209, P \> 0.1 | NA |
+
+ANOVA (T3SS) for prior amendment exposure on performance
 
 ``` r
 ### emmeans
@@ -1928,11 +2005,11 @@ comb_df <- expand_grid(traits = trait.list,
 ## Combine into a single string
 comb_df <- comb_df %>%
   mutate(
-    combs = paste(traits, amends, sep = "_")
+    combs = paste(traits, amends, sep ="_")
   )
 
 ## source function
-source("./Source_code/mod-indirect_contam.func.R")
+source("./Source_code/17_indirect-mod_contam.func.R")
 
 # Create output directory if it doesn't exist
 ## set output directory
@@ -2268,11 +2345,11 @@ aov <- lapply(mod.out, `[[`, 1) %>%
 aov$pval <- ifelse(is.na(aov$`Pr(>F)`) == FALSE,
                    signif(aov$`Pr(>F)`, 3),
                    signif(aov$`Pr(>Chisq)`, 3))
-aov$sig <- ifelse(aov$pval< 0.001, ", p < 0.001",
-            ifelse(aov$pval < 0.01, paste0(", p = ", aov$pval, "**"),
-            ifelse(aov$pval < 0.05, paste0(", p = ", aov$pval, "*"),
-            ifelse(aov$pval < 0.1, paste0(", p = ", aov$pval, "."),
-                               ", p > 0.1"))))
+aov$sig <- ifelse(aov$pval< 0.001, ", P < 0.001",
+            ifelse(aov$pval < 0.01, paste0(", P =", aov$pval, "**"),
+            ifelse(aov$pval < 0.05, paste0(", P =", aov$pval, "*"),
+            ifelse(aov$pval < 0.1, paste0(", P =", aov$pval, "."),
+                               ", P > 0.1"))))
 aov$stat <- ifelse(is.na(aov$`F value`) == FALSE,
                         signif(aov$`F value`, 3),
                         signif(aov$`LR Chisq`, 3))
@@ -2305,11 +2382,11 @@ cont <- lapply(mod.out, `[[`, 3) %>%
 ## round pval
 cont$pval <- signif(cont$p.value, 3)
 ### format
-cont$sig <- ifelse(cont$p.value < 0.001, ", p < 0.001",
-            ifelse(cont$p.value < 0.01, paste0(", p = ", cont$pval, "**"),
-            ifelse(cont$p.value < 0.05, paste0(", p = ", cont$pval, "*"),
-            ifelse(cont$p.value < 0.1, paste0(", p = ", cont$pval, "."),
-                               ", p > 0.1"))))
+cont$sig <- ifelse(cont$p.value < 0.001, ", P < 0.001",
+            ifelse(cont$p.value < 0.01, paste0(", P =", cont$pval, "**"),
+            ifelse(cont$p.value < 0.05, paste0(", P =", cont$pval, "*"),
+            ifelse(cont$p.value < 0.1, paste0(", P =", cont$pval, "."),
+                               ", P > 0.1"))))
 
 ## test stats
 cont$stat <- ifelse(is.na(cont$t.ratio) == FALSE,
@@ -2331,14 +2408,42 @@ cont$LCL <- ifelse(is.na(cont$lower.CL) == TRUE,
 cont$UCL <- ifelse(is.na(cont$upper.CL) == TRUE,
                    signif(cont$asymp.UCL, 3),
                    signif(cont$upper.CL, 3))
-cont$Est_CL <- paste0("slope = ", signif(cont$Est_r, 3), " [",
+cont$Est_CL <- paste0(signif(cont$Est_r, 3), " [",
                         cont$LCL," to ",
                         cont$UCL,"]")
 ## save as R data file
 save(cont, file = paste0(output_dir, "cont4-contam.Rdata"))
+## save as csv
+cont.w <- cont %>%
+  select(contrast, amend, trait, Est_CL, stat.f) %>%
+  pivot_wider(
+    names_from = "contrast",
+    values_from = c("Est_CL", "stat.f")
+  ) %>%
+  select(trait, amend, Est_CL_linear, stat.f_linear,
+          Est_CL_quadratic, stat.f_quadratic)
+
+## combine contrasts for both models
+cont1 <- read_csv(file = paste0(output_dir, "cont1-amend.csv"))
+```
+
+    ## Rows: 12 Columns: 4
+    ## ── Column specification ────────────────────────────────────────────────────────
+    ## Delimiter: ","
+    ## chr (4): trait, amend, log2FC_CL, stat.f
+    ## 
+    ## ℹ Use `spec()` to retrieve the full column specification for this data.
+    ## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+
+``` r
+cont.s <- cont1 %>%
+  left_join(., cont.w, by = c("trait", "amend"))
+  
+write_csv(cont.s, file = paste0("Supplementary_files/File_S4-indirect.csv"))
+
 
 ## save relevant output for table
-cont.s <- cont %>%
+cont.f <- cont %>%
   filter(p.value < 0.1) %>%
   mutate(
     contrast_info = paste0(contrast, ": ", 
@@ -2357,7 +2462,7 @@ cont.s <- cont %>%
 
 ``` r
 ## add to anova
-aov.f <- left_join(aov.f, cont.s, by = c("trait","Amendment")) %>%
+aov.f <- left_join(aov.f, cont.f, by = c("trait","Amendment")) %>%
   pivot_wider(
     names_from = Amendment,
     values_from = c(`Spiking level`, `sig_contrasts`)
@@ -2370,12 +2475,12 @@ kable(aov.f)
 
 | trait | Spiking level_RW | Spiking level_BS | sig_contrasts_RW | sig_contrasts_BS |
 |:---|:---|:---|:---|:---|
-| plant_height4 | F \[2, 6\] = 0.0732, p \> 0.1 | F \[2, 6\] = 1.1, p \> 0.1 | NA | NA |
-| chlorophyll_content4_mean | F \[2, 6\] = 0.519, p \> 0.1 | F \[2, 6\] = 0.527, p \> 0.1 | NA | NA |
-| leaf_num2 | X2 = 0.00926, df = 2, p \> 0.1 | X2 = 0.706, df = 2, p \> 0.1 | NA | NA |
-| dry_total_weight | F \[2, 6\] = 0.256, p \> 0.1 | F \[2, 6\] = 0.347, p \> 0.1 | NA | NA |
-| shoot_root_ratio | F \[2, 6\] = 0.668, p \> 0.1 | F \[2, 6\] = 12.3, p = 0.00748\*\* | NA | linear: t = -4.8, df = 6, p = 0.003\*\*; slope = -0.551 \[-0.831 to -0.27\] |
-| shoot_moisture | F \[2, 6\] = 0.123, p \> 0.1 | F \[2, 6\] = 1.02, p \> 0.1 | NA | NA |
+| plant_height4 | F \[2, 6\] = 0.0732, P \> 0.1 | F \[2, 6\] = 1.1, P \> 0.1 | NA | NA |
+| chlorophyll_content4_mean | F \[2, 6\] = 0.519, P \> 0.1 | F \[2, 6\] = 0.527, P \> 0.1 | NA | NA |
+| leaf_num2 | X2 = 0.00926, df = 2, P \> 0.1 | X2 = 0.706, df = 2, P \> 0.1 | NA | NA |
+| dry_total_weight | F \[2, 6\] = 0.256, P \> 0.1 | F \[2, 6\] = 0.347, P \> 0.1 | NA | NA |
+| shoot_root_ratio | F \[2, 6\] = 0.668, P \> 0.1 | F \[2, 6\] = 12.3, P =0.00748\*\* | NA | linear: t = -4.8, df = 6, P =0.003\*\*; -0.551 \[-0.831 to -0.27\] |
+| shoot_moisture | F \[2, 6\] = 0.123, P \> 0.1 | F \[2, 6\] = 1.02, P \> 0.1 | NA | NA |
 
 ``` r
 ### emmeans
@@ -2535,7 +2640,7 @@ for (d in direct_cols) {
         labs(title = paste("Correlation:", d, "vs", i),
              subtitle = paste0("R² = ", round(r_squared, 3),
                                ", r = ", round(corr$estimate, 3),
-                               ", p = ", signif(corr$p.value, 3))) +
+                               ", P = ", signif(corr$p.value, 3))) +
         scale_color_manual(values = c("gray",
                                   "lightblue",
                                   "cornflowerblue",
@@ -2736,7 +2841,7 @@ corr_plot <- ggplot(direct.p, aes(x = direct.dry_total_weight,
   ", r = ", 
   round(corr_res$Pearson_corr[corr_res$Direct == 
                         "direct.dry_total_weight"],3),
-  ", p = ", 
+  ", P = ", 
   signif(corr_res$P_value_regression[corr_res$Direct == 
                         "direct.dry_total_weight"],3)
         )) +
@@ -2795,8 +2900,7 @@ sig.traits <- c(
   "dry_total_weight",
   "shoot_root_ratio",
   "shoot_moisture",
-  "plant_height4",
-  "leaf_num2")
+  "plant_height4")
 
 ### filter dataset to sig traits
 cont.f <- cont %>%
@@ -2808,8 +2912,7 @@ cont.f$trait <- factor(cont.f$trait,
          "dry_total_weight", 
          "shoot_root_ratio",
          "shoot_moisture",
-         "plant_height4",
-         "leaf_num2"))
+         "plant_height4"))
 
 ### rename traits
 trait_names <- c(
@@ -2876,9 +2979,6 @@ M1_plot <- ggplot(data = cont.f,
 M1_plot
 ```
 
-    ## Warning: Removed 2 rows containing missing values or values outside the scale range
-    ## (`geom_segment()`).
-
 ![](indirect_files/figure-gfm/figs_PHT-1.png)<!-- -->
 
 ``` r
@@ -2932,83 +3032,88 @@ emms.f$trait <- factor(emms.f$trait,
          "dry_total_weight", 
          "shoot_root_ratio",
          "shoot_moisture",
-         "plant_height4",
-         "leaf_num2"))
+         "plant_height4"))
 
 ##### Contrasts (contamination level) #####
 M2_plot <- ggplot(data = emms.f,
    aes(x = factor(spikeFac), 
        y = emmean, 
        colour = amend)) +
+  
   geom_line(aes(group = amend),
             position = position_dodge(0.2)) +
+  
   geom_pointrange(aes(ymin = lower.CL,
                       ymax = upper.CL),
                   position = position_dodge(0.2)) +
-  ### add in significance (0.05 <= p < 0.1) 
+  
+  ### linear: marginal (0.05 <= p < 0.1)
   geom_text(
-    data = emms.f %>% filter(spikeFac == 2 &
-                          pval_linear >= 0.05 & 
-                            pval_linear < 0.1),
+    data = emms.f %>% filter(spikeFac == 2,
+                             pval_linear >= 0.05, pval_linear < 0.1),
     aes(x = factor(spikeFac), y = emmean),
-    label = "+",
-    size = 6,
+    label = "+", size = 6,
     position = position_dodge(0.5),
     vjust = -0.5
   ) +
-  ### add in significance (p < 0.05) 
+  
+  ### linear: significant (p < 0.05)
   geom_text(
-    data = emms.f %>% filter(spikeFac == 2 &
-                               pval_linear < 0.05),
+    data = emms.f %>% filter(spikeFac == 2,
+                             pval_linear < 0.05),
     aes(x = factor(spikeFac), y = emmean),
-    label = "*",
-    size = 6,
+    label = "*", size = 6,
     position = position_dodge(0.5),
     vjust = -0.5
   ) +
-  ### add in significance (p < 0.05) - quadratic
+  
+  ### quadratic: significant (p < 0.05)
   geom_text(
-    data = emms.f %>% filter(spikeFac == 0 &
-                               pval_quadratic < 0.05),
+    data = emms.f %>% filter(spikeFac == 0,
+                             pval_quadratic < 0.05),
     aes(x = factor(spikeFac), y = emmean),
-    label = "*",
-    size = 6,
+    label = "*", size = 6,
     position = position_dodge(0.5),
     vjust = -0.5
   ) +
-  ### add in significance (p ms) - quadratic
+  
+  ### quadratic: marginal (0.05 <= p < 0.1)
   geom_text(
-    data = emms.f %>% filter(spikeFac == 0 &
-                        pval_quadratic >= 0.05 & 
-                          pval_quadratic < 0.1),
+    data = emms.f %>% filter(spikeFac == 0,
+                             pval_quadratic >= 0.05, pval_quadratic < 0.1),
     aes(x = factor(spikeFac), y = emmean),
-    label = "+",
-    size = 6,
+    label = "+", size = 6,
     position = position_dodge(0.5),
     vjust = -0.5
   ) +
-   scale_colour_manual(values = c(
-                                  "blue",
-                                 "#B06500")) +
-  facet_grid(trait~., scales = "free_y",
+  
+  scale_colour_manual(values = c("blue", "#B06500")) +
+  
+  facet_grid(trait ~ ., scales = "free",
              labeller = labeller(trait = trait_names)) +
-  labs(y = expression("EM mean (95% CL)"), 
+  
+  labs(y = expression("EM mean (log scale)"),
        x = "Contaminant level") +
+  
   guides(colour = "none") +
+  
+  ### ⭐ Key additions to prevent clipping of BOTH error bars and annotations
+  scale_y_continuous(expand = c(0.05, 0.25)) +   # 5% below, 25% above
+  coord_cartesian(clip = "off") +                # allow drawing outside panel
+  theme(plot.margin = margin(t = 12, r = 8, b = 12, l = 8)) +
+  
   theme_bw() +
   theme(
     axis.text = element_text(size = 12),
-   axis.title.x = element_text(size =  14),
-    axis.title.y = element_text(size =  14),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
     strip.text.y = element_blank(),
     panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
+    panel.grid.minor = element_blank()
   )
+
 M2_plot
 ```
-
-    ## Warning: Removed 6 rows containing missing values or values outside the scale range
-    ## (`geom_segment()`).
 
 ![](indirect_files/figure-gfm/figs_PHT-2.png)<!-- -->
 
@@ -3019,15 +3124,6 @@ plots <- plot_grid(M1_plot, M2_plot,
                    rel_widths = c(1, 1),
                    align = "h",
                    labels = c("B","C"))
-```
-
-    ## Warning: Removed 2 rows containing missing values or values outside the scale range
-    ## (`geom_segment()`).
-
-    ## Warning: Removed 6 rows containing missing values or values outside the scale range
-    ## (`geom_segment()`).
-
-``` r
 plots
 ```
 
@@ -3051,7 +3147,7 @@ load(file = "./indirect_files/indirect-formatted.Rda") ## loads indirect
 load(file = "./indirect_files/models/emm1-slurry.means.Rda") ## loads emm.s
 
 ## source function
-source("./Source_code/plot-indirect_emms.func.R")
+source("./Source_code/18_indirect-plot_emms.func.R")
 
 ## traits to run through
 trait.list <- c("plant_height4",
