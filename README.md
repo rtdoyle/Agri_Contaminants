@@ -1,5 +1,5 @@
 # Agri_Contaminants
-All raw data and code for analyses associated with manuscript "Crop-specific and microbially-mediated impacts of alternative agricultural amendments on plant performance"
+All raw data and code for analyses associated with manuscript "Crop-specific and amendment-dependent impacts of organic contaminants of concern on plant performance and bacterial microbiomes"
 Ippolito et al. (2026)
 
 ## 📁 Project Structure
