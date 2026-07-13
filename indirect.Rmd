@@ -1694,4 +1694,14 @@ fig
 ggsave("./indirect_files/figs/Fig3.png", plot = fig,
        width=10, height=6, units = "in")
 include_graphics("./indirect_files/figs/Fig3.png")
+
+## high res
+ggsave(
+  filename = "./indirect_files/figs/Fig3_indirect_HR.pdf",
+  plot = fig,
+  device = cairo_pdf,
+  width = 10,
+  height = 6,
+  units = "in"
+)
 ```

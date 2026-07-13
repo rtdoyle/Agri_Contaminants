@@ -37,12 +37,12 @@ library("RColorBrewer") ## colour pallets
 ## microbiome-related packages
 library("phyloseq") 
 library("vegan") ## for rarecurve function
-library("seqRFLP") ## dataframe2fas function
+# library("seqRFLP") ## dataframe2fas function
 ## stats (linear models) packages
 library("car") ## Anova function for type III SS
 library("emmeans") ## post-hoc tests with multiple comparison correction
 library("lme4") ## lmer package
-library("FSA") ## dunn's style test
+# library("FSA") ## dunn's style test
 ```
 
 ## Import and format data
@@ -1831,7 +1831,8 @@ legend <- get_legend(
 final_figure <- plot_grid(combined_panel, legend, ncol = 1, rel_heights = c(1, 0.2))
 final_figure
 ## save
-saveRDS(final_figure, file = paste0(dir, "figs/plots-Fig2_dbRDA.rds"))
+saveRDS(combined_panel, file = paste0(dir, "figs/plots-Fig2_dbRDA.rds"))
+saveRDS(legend, file = paste0(dir, "figs/plots-Fig2_dbRDA_legend.rds"))
 
 ## plots for Supp. figure: each species within each timpoint
 
@@ -1919,22 +1920,50 @@ dir <- "./16S_analyses_files/figs/"
 ## stitch together with effect comparisons
 alpha_plot <- readRDS(paste0(dir, "plots-alpha_div.rds"))
 CAP_plot <- readRDS(paste0(dir, "plots-Fig2_dbRDA.rds"))
+CAP_plot_legend <- readRDS(paste0(dir, "plots-Fig2_dbRDA_legend.rds"))
 
-# Combine into final figure
-micro_plot <- plot_grid(
+## get legend
+
+main_panels <- plot_grid(
   alpha_plot,
-  CAP_plot,
+  combined_panel,
   ncol = 2,
-  nrow = 1,
-  labels = c("A","B"),
-  rel_widths = c(0.9, 1.1)
-  #rel_heights = c(0.9, 1.1)
+  labels = c("A", "B"),
+  rel_widths = c(1.1, 1)
 )
+
+micro_plot <- plot_grid(
+  main_panels,
+  legend,
+  ncol = 1,
+  rel_heights = c(1, 0.12)
+)
+
+# # Combine into final figure
+# micro_plot <- plot_grid(
+#   alpha_plot,
+#   CAP_plot,
+#   ncol = 2,
+#   nrow = 1,
+#   labels = c("A","B"),
+#   rel_widths = c(1.1, 1.25)
+#   #rel_heights = c(0.9, 1.1)
+# )
 ## cannot print(micro_plot) -- too complex
 ## save
 ggsave(paste0(dir, "Fig2.png"), 
        plot = micro_plot,
        width=12, height=7, units = "in")
+
+## high res image
+ggsave(
+  filename = paste0(dir, "Fig2_HR.pdf"),
+  plot = micro_plot,
+  device = cairo_pdf,
+  width = 12,
+  height = 7,
+  units = "in"
+)
 
 ```
 

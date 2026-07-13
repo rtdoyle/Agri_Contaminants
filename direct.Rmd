@@ -1096,6 +1096,16 @@ final_plot
 ggsave("./direct_files/figs/Fig1-direct.png", 
        width = 10, height = 8, 
        units = "in")
+
+## higher res for publication
+ggsave(
+  "./direct_files/figs/Fig1-direct_HR.pdf",
+  plot = final_plot,
+  width = 10,
+  height = 8,
+  units = "in",
+  device = cairo_pdf
+)
 ```
 
 #### 6) Post-hoc tests (supplementary figs)
