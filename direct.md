@@ -3,7 +3,7 @@ Direct exposure experiment: effects of amendments and contamination
 RTD, II
 2026-01-27
 
-## Direct impacts of amendinants on crop growth
+## Direct impacts of amendments on crop growth
 
 What impacts do amendments spiked with different levels of contaminants
 have on plant traits, and are these impacts crop-species dependent?
